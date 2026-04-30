@@ -243,7 +243,6 @@ Important rules:
 
 - Gameplay code should not depend on `wgpu`, `winit`, `kira`, or `image` directly.
 - FFI must not expose Rust references, generics, traits, lifetimes, `Vec<T>`, `HashMap`, `String`, backend types, or ECS internals.
-- `_reversa_sdd/` is reference material, not a requirement to clone Bevy.
 - Android and Go are future-facing design constraints, not MVP implementation requirements.
 
 More detail:
@@ -317,23 +316,14 @@ Manual demo checklist:
 
 ## Roadmap
 
-- [x] Rust workspace with modular engine crates
-- [x] Facade crate with `seishin2d::prelude::*`
-- [x] Desktop window and event loop
-- [x] Basic input state
-- [x] Asset root/path handling and image loading
-- [x] Minimal wgpu renderer
-- [x] Sprite rendering and camera math
-- [x] Simple audio playback/degradation
-- [x] Playable `basic_2d` MVP example
-- [x] C ABI lifecycle smoke boundary
-- [ ] Improve render batching and multi-sprite correctness
-- [ ] Add stronger asset symlink/path regression tests
-- [ ] Improve frame pacing/redraw policy
-- [ ] Add a higher-level scene/entity API
-- [ ] Evaluate `bevy_ecs` after MVP needs are clearer
-- [ ] Add Go binding over the C ABI
-- [ ] Explore Android runtime support
+The roadmap lives in [`docs/roadmap.md`](docs/roadmap.md) to keep this README focused on onboarding.
+
+Current priorities:
+
+- harden the MVP runtime/render loop;
+- improve the high-level game API;
+- expand tests around assets, rendering, and FFI safety;
+- prepare future bindings without exposing Rust internals.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -367,7 +357,6 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information
 ## Acknowledgments
 
 - The README structure is inspired by [Best-README-Template](https://github.com/othneildrew/Best-README-Template).
-- The `_reversa_sdd/` corpus is used as architecture reference material for engine patterns and risks.
 - Rust game development projects and crates such as `wgpu`, `winit`, `kira`, and `image` provide the foundation for this prototype.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
