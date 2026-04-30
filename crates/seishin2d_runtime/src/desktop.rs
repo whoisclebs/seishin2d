@@ -195,18 +195,16 @@ pub fn run_desktop<G: DesktopGame>(
                     }
                 }
             }
-            Event::LoopExiting => {
-                if !shutdown {
-                    if let Err(error) = game.shutdown(&mut engine) {
-                        let error_slot = &mut *shared_runtime_error.borrow_mut();
+            Event::LoopExiting if !shutdown => {
+                if let Err(error) = game.shutdown(&mut engine) {
+                    let error_slot = &mut *shared_runtime_error.borrow_mut();
 
-                        if error_slot.is_none() {
-                            *error_slot = Some(error.into());
-                        }
+                    if error_slot.is_none() {
+                        *error_slot = Some(error.into());
                     }
-
-                    shutdown = true;
                 }
+
+                shutdown = true;
             }
             _ => {}
         }
