@@ -13,9 +13,11 @@ No stable release line exists yet. Please report issues against `main`.
 
 ## Reporting a Vulnerability
 
-Please open a private security advisory if the repository host supports it. Otherwise, open an issue with minimal public detail and indicate that it is security-sensitive.
+Please report vulnerabilities through GitHub's private vulnerability reporting flow for this repository.
 
-Do not include exploit payloads or sensitive machine-specific data in public issues.
+Do not include exploit payloads, crash reproducers with sensitive data, credentials, local paths, or machine-specific information in public issues.
+
+For non-sensitive hardening work, open a regular issue or pull request.
 
 ## Expectations
 
