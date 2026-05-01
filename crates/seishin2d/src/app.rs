@@ -1,6 +1,6 @@
 use std::{
     any::TypeId,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
     fs,
     path::{Path, PathBuf},
@@ -1182,6 +1182,7 @@ struct ButtonAction {
 pub struct RenderContext {
     clear_color: ClearColor,
     camera: Camera2D,
+    texture_ids: HashSet<TextureId>,
     textures: Vec<TextureData>,
     sprites: Vec<Sprite>,
 }
@@ -1191,12 +1192,14 @@ impl RenderContext {
         Self {
             clear_color,
             camera: Camera2D::default(),
+            texture_ids: HashSet::new(),
             textures: Vec::new(),
             sprites: Vec::new(),
         }
     }
 
     fn reset(&mut self) {
+        self.texture_ids.clear();
         self.textures.clear();
         self.sprites.clear();
     }
@@ -1210,7 +1213,9 @@ impl RenderContext {
     }
 
     pub fn texture(&mut self, texture: &Texture) {
-        self.textures.push(texture.data().clone());
+        if self.texture_ids.insert(texture.id()) {
+            self.textures.push(texture.data().clone());
+        }
     }
 
     pub fn sprite(&mut self, sprite: Sprite) {

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use wgpu::util::DeviceExt;
 
 use crate::{Camera2D, RenderError, RenderSize, RenderState, Sprite, TextureData, TextureId};
 
@@ -14,6 +13,8 @@ pub struct Renderer {
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     textures: HashMap<TextureId, GpuTexture>,
+    sprite_vertex_buffer: Option<wgpu::Buffer>,
+    sprite_vertex_capacity: usize,
     size: RenderSize,
 }
 
@@ -124,6 +125,8 @@ impl Renderer {
             render_pipeline,
             texture_bind_group_layout,
             textures: HashMap::new(),
+            sprite_vertex_buffer: None,
+            sprite_vertex_capacity: 0,
             size,
         };
 
@@ -154,14 +157,7 @@ impl Renderer {
             .iter()
             .flat_map(|sprite| sprite_vertices(*sprite, frame.camera, self.size))
             .collect::<Vec<_>>();
-        let sprite_vertex_buffer = (!sprite_vertices.is_empty()).then(|| {
-            self.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("seishin2d frame sprite vertex buffer"),
-                    contents: bytemuck::cast_slice(&sprite_vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                })
-        });
+        self.write_sprite_vertices(&sprite_vertices);
 
         let surface_texture = match self.surface.get_current_texture() {
             Ok(texture) => texture,
@@ -200,7 +196,7 @@ impl Renderer {
 
             pass.set_pipeline(&self.render_pipeline);
 
-            if let Some(sprite_vertex_buffer) = &sprite_vertex_buffer {
+            if let Some(sprite_vertex_buffer) = &self.sprite_vertex_buffer {
                 pass.set_vertex_buffer(0, sprite_vertex_buffer.slice(..));
             }
 
@@ -221,6 +217,29 @@ impl Renderer {
         surface_texture.present();
 
         Ok(())
+    }
+
+    fn write_sprite_vertices(&mut self, vertices: &[SpriteVertex]) {
+        if vertices.is_empty() {
+            return;
+        }
+
+        if vertices.len() > self.sprite_vertex_capacity {
+            self.sprite_vertex_capacity = vertices.len().next_power_of_two();
+            self.sprite_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("seishin2d sprite vertex buffer"),
+                size: (self.sprite_vertex_capacity * std::mem::size_of::<SpriteVertex>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        }
+
+        let Some(buffer) = &self.sprite_vertex_buffer else {
+            return;
+        };
+
+        self.queue
+            .write_buffer(buffer, 0, bytemuck::cast_slice(vertices));
     }
 
     fn upload_textures(&mut self, textures: &[TextureData]) -> Result<(), RenderError> {
