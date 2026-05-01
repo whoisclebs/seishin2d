@@ -1,4 +1,5 @@
 use std::{
+    any::TypeId,
     collections::HashMap,
     error::Error,
     fs,
@@ -421,7 +422,7 @@ impl StartupContext {
     ) -> Self {
         Self {
             assets: Assets::new(asset_root),
-            audio: AudioSystem::new(),
+            audio: default_audio_system(),
             world: World::default(),
             components: ComponentRegistry::default(),
             component_instances: Vec::new(),
@@ -513,6 +514,12 @@ pub trait Component2D {
 
 type ComponentFactory = fn(&toml::Value) -> GameResult<Box<dyn Component2D>>;
 
+#[derive(Clone, Copy)]
+struct ComponentRegistration {
+    type_id: TypeId,
+    factory: ComponentFactory,
+}
+
 pub struct RuntimeComponent {
     entity: Entity,
     component: Box<dyn Component2D>,
@@ -520,7 +527,7 @@ pub struct RuntimeComponent {
 
 #[derive(Clone, Default)]
 pub struct ComponentRegistry {
-    factories: HashMap<String, ComponentFactory>,
+    registrations: HashMap<String, ComponentRegistration>,
 }
 
 impl ComponentRegistry {
@@ -534,20 +541,32 @@ impl ComponentRegistry {
             return Err("component registration name must not be empty".into());
         }
 
-        self.factories.insert(name, |_| Ok(Box::<T>::default()));
+        self.registrations.insert(
+            name,
+            ComponentRegistration {
+                type_id: TypeId::of::<T>(),
+                factory: |_| Ok(Box::<T>::default()),
+            },
+        );
         Ok(())
     }
 
     pub fn contains(&self, name: &str) -> bool {
-        self.factories.contains_key(name)
+        self.registrations.contains_key(name)
+    }
+
+    fn type_id(&self, name: &str) -> Option<TypeId> {
+        self.registrations
+            .get(name)
+            .map(|registration| registration.type_id)
     }
 
     fn instantiate(&self, component: &CustomComponentRef) -> GameResult<Box<dyn Component2D>> {
-        let Some(factory) = self.factories.get(&component.type_name) else {
+        let Some(registration) = self.registrations.get(&component.type_name) else {
             return Err(format!("unknown component type '{}'", component.type_name).into());
         };
 
-        factory(&component.config)
+        (registration.factory)(&component.config)
     }
 }
 
@@ -705,6 +724,7 @@ struct EntityRecord {
 #[derive(Debug, Clone)]
 struct CustomComponentRef {
     type_name: String,
+    type_id: Option<TypeId>,
     config: toml::Value,
 }
 
@@ -830,6 +850,18 @@ impl World {
         })
     }
 
+    fn set_custom_component_type_id(&mut self, entity: Entity, type_name: &str, type_id: TypeId) {
+        if let Some(record) = self.entities.get_mut(&entity) {
+            if let Some(component) = record
+                .custom_components
+                .iter_mut()
+                .find(|component| component.type_name == type_name)
+            {
+                component.type_id = Some(type_id);
+            }
+        }
+    }
+
     pub fn custom_component_config(&self, entity: Entity, type_name: &str) -> Option<&toml::Value> {
         self.entities.get(&entity).and_then(|record| {
             record
@@ -840,8 +872,15 @@ impl World {
         })
     }
 
-    pub fn has_component<T: Component2D + 'static>(&self, _entity: Entity) -> bool {
-        false
+    pub fn has_component<T: Component2D + 'static>(&self, entity: Entity) -> bool {
+        let type_id = TypeId::of::<T>();
+
+        self.entities.get(&entity).is_some_and(|record| {
+            record
+                .custom_components
+                .iter()
+                .any(|component| component.type_id == Some(type_id))
+        })
     }
 
     pub fn translate(&mut self, entity: Entity, delta: Vec2) {
@@ -865,7 +904,10 @@ impl World {
     }
 
     fn render_into(&self, render: &mut RenderContext) {
-        for record in self.entities.values() {
+        let mut entities = self.entities.iter().collect::<Vec<_>>();
+        entities.sort_by_key(|(entity, _)| **entity);
+
+        for (_, record) in entities {
             let Some(renderer) = &record.renderer else {
                 continue;
             };
@@ -1306,6 +1348,16 @@ fn update_builtin_dialogue_interaction(context: &mut FrameContext<'_>) -> GameRe
     Ok(())
 }
 
+#[cfg(test)]
+fn default_audio_system() -> AudioSystem {
+    AudioSystem::without_backend("test backend disabled")
+}
+
+#[cfg(not(test))]
+fn default_audio_system() -> AudioSystem {
+    AudioSystem::new()
+}
+
 #[derive(Debug, Deserialize)]
 struct ProjectConfig {
     game: Option<GameConfig>,
@@ -1402,7 +1454,7 @@ struct SceneEntityConfig {
     components: Vec<CustomComponentConfig>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct PrefabConfig {
     #[serde(default)]
     components: HashMap<String, toml::Value>,
@@ -1719,14 +1771,20 @@ fn validate_main_scene(main_scene: &str, paths: &ProjectPaths) -> GameResult<()>
 
 fn load_main_scene(main_scene: &str, startup: &mut StartupContext) -> GameResult<()> {
     let scene = load_scene_config(main_scene, &startup.paths)?;
+    let mut prefab_cache = HashMap::new();
 
     for entity in scene.entities {
-        let runtime = build_scene_entity(entity, startup)?;
+        let runtime = build_scene_entity(entity, startup, &mut prefab_cache)?;
         let custom_components = runtime.custom_components.clone();
         let entity = startup.world.spawn_scene_entity(runtime);
 
         for component in custom_components {
             let instance = startup.components.instantiate(&component)?;
+            if let Some(type_id) = startup.components.type_id(&component.type_name) {
+                startup
+                    .world
+                    .set_custom_component_type_id(entity, &component.type_name, type_id);
+            }
             startup.component_instances.push(RuntimeComponent {
                 entity,
                 component: instance,
@@ -1771,14 +1829,31 @@ fn load_prefab_config(path: &str, paths: &ProjectPaths) -> GameResult<PrefabConf
     })
 }
 
+fn load_prefab_config_cached(
+    path: &str,
+    paths: &ProjectPaths,
+    cache: &mut HashMap<String, PrefabConfig>,
+) -> GameResult<PrefabConfig> {
+    if let Some(prefab) = cache.get(path) {
+        return Ok(prefab.clone());
+    }
+
+    let prefab = load_prefab_config(path, paths)?;
+    cache.insert(path.to_string(), prefab.clone());
+    Ok(prefab)
+}
+
 fn build_scene_entity(
     entity: SceneEntityConfig,
     startup: &mut StartupContext,
+    prefab_cache: &mut HashMap<String, PrefabConfig>,
 ) -> GameResult<SceneEntityRuntime> {
     let mut blueprint = match entity.prefab.as_deref() {
-        Some(prefab_path) => {
-            EntityBlueprint::from_prefab(load_prefab_config(prefab_path, &startup.paths)?)
-        }
+        Some(prefab_path) => EntityBlueprint::from_prefab(load_prefab_config_cached(
+            prefab_path,
+            &startup.paths,
+            prefab_cache,
+        )?),
         None => EntityBlueprint::default(),
     };
 
@@ -1930,6 +2005,7 @@ impl EntityBlueprint {
                 .into_iter()
                 .map(|component| CustomComponentRef {
                     type_name: component.type_name,
+                    type_id: None,
                     config: toml::Value::Table(component.config.into_iter().collect()),
                 })
                 .collect(),
@@ -2213,6 +2289,7 @@ mod tests {
         assert!(startup
             .world()
             .has_custom_component(player, "PlayerController"));
+        assert!(startup.world().has_component::<TestController>(player));
         assert_eq!(
             startup.world().data_ref(merchant, "character"),
             Some("res://data/characters/merchant.toml")
