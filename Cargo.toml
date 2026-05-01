@@ -34,5 +34,9 @@ bytemuck = { version = "1.15.0", features = ["derive"] }
 kira = { version = "0.8.7", default-features = false, features = ["cpal", "wav"] }
 pollster = "0.3.0"
 raw-window-handle = "0.6.2"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "0.8.23"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 wgpu = "0.19.4"
 winit = "0.29.15"

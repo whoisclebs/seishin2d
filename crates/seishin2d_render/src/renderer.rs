@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bytemuck::{Pod, Zeroable};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use wgpu::util::DeviceExt;
 
 use crate::{Camera2D, RenderError, RenderSize, RenderState, Sprite, TextureData, TextureId};
 
@@ -12,7 +13,6 @@ pub struct Renderer {
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group_layout: wgpu::BindGroupLayout,
-    quad_vertex_buffer: wgpu::Buffer,
     textures: HashMap<TextureId, GpuTexture>,
     size: RenderSize,
 }
@@ -116,13 +116,6 @@ impl Renderer {
             }),
             multiview: None,
         });
-        let quad_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("seishin2d quad vertex buffer"),
-            size: (std::mem::size_of::<SpriteVertex>() * 6) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         let mut renderer = Self {
             surface,
             device,
@@ -130,7 +123,6 @@ impl Renderer {
             config,
             render_pipeline,
             texture_bind_group_layout,
-            quad_vertex_buffer,
             textures: HashMap::new(),
             size,
         };
@@ -156,6 +148,20 @@ impl Renderer {
         }
 
         self.upload_textures(frame.textures)?;
+
+        let sprite_vertices = frame
+            .sprites
+            .iter()
+            .flat_map(|sprite| sprite_vertices(*sprite, frame.camera, self.size))
+            .collect::<Vec<_>>();
+        let sprite_vertex_buffer = (!sprite_vertices.is_empty()).then(|| {
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("seishin2d frame sprite vertex buffer"),
+                    contents: bytemuck::cast_slice(&sprite_vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                })
+        });
 
         let surface_texture = match self.surface.get_current_texture() {
             Ok(texture) => texture,
@@ -194,22 +200,20 @@ impl Renderer {
 
             pass.set_pipeline(&self.render_pipeline);
 
-            for sprite in frame.sprites {
+            if let Some(sprite_vertex_buffer) = &sprite_vertex_buffer {
+                pass.set_vertex_buffer(0, sprite_vertex_buffer.slice(..));
+            }
+
+            for (index, sprite) in frame.sprites.iter().enumerate() {
                 let texture = self
                     .textures
                     .get(&sprite.texture_id)
                     .ok_or(RenderError::MissingTexture(sprite.texture_id))?;
-                let vertices = sprite_vertices(*sprite, frame.camera, self.size);
-
-                self.queue.write_buffer(
-                    &self.quad_vertex_buffer,
-                    0,
-                    bytemuck::cast_slice(&vertices),
-                );
+                let vertex_start = (index * 6) as u32;
+                let vertex_end = vertex_start + 6;
 
                 pass.set_bind_group(0, &texture.bind_group, &[]);
-                pass.set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
-                pass.draw(0..6, 0..1);
+                pass.draw(vertex_start..vertex_end, 0..1);
             }
         }
 

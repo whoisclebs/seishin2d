@@ -8,3 +8,4 @@ rust-version.workspace = true
 
 [dependencies]
 seishin2d.workspace = true
+tracing.workspace = true

@@ -243,7 +243,12 @@ fn map_winit_key_code(key: PhysicalKey) -> Option<KeyCode> {
         PhysicalKey::Code(WinitKeyCode::ArrowDown) => Some(KeyCode::ArrowDown),
         PhysicalKey::Code(WinitKeyCode::ArrowLeft) => Some(KeyCode::ArrowLeft),
         PhysicalKey::Code(WinitKeyCode::ArrowRight) => Some(KeyCode::ArrowRight),
+        PhysicalKey::Code(WinitKeyCode::KeyW) => Some(KeyCode::KeyW),
+        PhysicalKey::Code(WinitKeyCode::KeyA) => Some(KeyCode::KeyA),
+        PhysicalKey::Code(WinitKeyCode::KeyS) => Some(KeyCode::KeyS),
+        PhysicalKey::Code(WinitKeyCode::KeyD) => Some(KeyCode::KeyD),
         PhysicalKey::Code(WinitKeyCode::Space) => Some(KeyCode::Space),
+        PhysicalKey::Code(WinitKeyCode::Enter) => Some(KeyCode::Enter),
         PhysicalKey::Code(WinitKeyCode::Escape) => Some(KeyCode::Escape),
         _ => None,
     }
@@ -343,14 +348,27 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_winit_keys_are_ignored() {
+    fn wasd_keys_are_mapped_for_input_actions() {
         let mut frame = DesktopInputFrame::default();
         let mut input = InputState::default();
 
         frame.apply_keyboard_input(PhysicalKey::Code(WinitKeyCode::KeyA), ElementState::Pressed);
 
         assert!(!frame.begin_game_frame(&mut input));
+        assert!(input.pressed(KeyCode::KeyA));
+        assert!(input.just_pressed(KeyCode::KeyA));
+    }
+
+    #[test]
+    fn unsupported_winit_keys_are_ignored() {
+        let mut frame = DesktopInputFrame::default();
+        let mut input = InputState::default();
+
+        frame.apply_keyboard_input(PhysicalKey::Code(WinitKeyCode::F1), ElementState::Pressed);
+
+        assert!(!frame.begin_game_frame(&mut input));
         assert!(!input.pressed(KeyCode::ArrowRight));
         assert!(!input.pressed(KeyCode::Escape));
+        assert!(!input.pressed(KeyCode::KeyA));
     }
 }
