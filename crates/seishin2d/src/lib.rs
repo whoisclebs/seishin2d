@@ -1,7 +1,10 @@
 mod app;
 
 pub use app::{
-    App, Assets, FrameContext, Game2D, GameResult, RenderContext, StartupContext, Texture,
+    run, ActiveDialogue, App, Assets, CharacterData, CharacterDialogueData, Component2D,
+    ComponentRegistry, DialogueData, DialogueState, Entity, EntityMut, FrameContext, Game2D,
+    GameResult, GameplayInput, InputActions, InputQuery, LogLevel, RenderContext, ResourceToml,
+    Resources, SpriteBuilder, SpriteBundle, SpriteRenderer, StartupContext, Texture, Vec2, World,
 };
 
 pub mod assets {
@@ -34,7 +37,11 @@ pub mod runtime {
 
 pub mod prelude {
     pub use crate::{
-        App, Assets, FrameContext, Game2D, GameResult, RenderContext, StartupContext, Texture,
+        run, ActiveDialogue, App, Assets, CharacterData, CharacterDialogueData, Component2D,
+        ComponentRegistry, DialogueData, DialogueState, Entity, EntityMut, FrameContext, Game2D,
+        GameResult, GameplayInput, InputActions, InputQuery, LogLevel, RenderContext, ResourceToml,
+        Resources, SpriteBuilder, SpriteBundle, SpriteRenderer, StartupContext, Texture, Vec2,
+        World,
     };
     pub use seishin2d_assets::{AssetHandle, AssetLoader, AssetPath, AssetRoot};
     pub use seishin2d_audio::{AudioSkipReason, AudioSystem, PlaybackResult, SoundAsset};

@@ -24,7 +24,7 @@
 
 `seishin2d` is a native 2D game engine prototype written in Rust. The project starts with a small desktop MVP and is designed around a stable public API boundary so future language bindings can call into the engine through C ABI / FFI instead of touching Rust internals.
 
-The current MVP opens a desktop window, renders a sprite, loads assets from disk, handles keyboard input, plays a simple sound, and exposes a small future-safe FFI lifecycle boundary.
+The current MVP opens a desktop window, renders a sprite, loads assets from disk, handles keyboard input, and exposes a small future-safe FFI lifecycle boundary.
 
 ## Table of Contents
 
@@ -149,8 +149,8 @@ cargo run -p seishin2d_basic_2d
 
 Controls:
 
-- Arrow keys: move sprite
-- Space: play sound, or log a controlled skip if audio is unavailable
+- Arrow keys or WASD: move sprite through the configured `move` input action
+- Space or Enter: open/close the MVP dialogue flow in logs
 - Escape: close the demo
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -162,45 +162,60 @@ Game/example code should normally depend on the facade crate and import the prel
 ```rust
 use seishin2d::prelude::*;
 
-struct Game {
-    player_texture: Texture,
-    player: Sprite,
-}
+mod components;
+
+use components::PlayerController;
+
+struct Game;
 
 impl Game2D for Game {
     fn new(ctx: &mut StartupContext) -> GameResult<Self> {
-        let player_texture = ctx.load_texture("sprites/player.png")?;
-        let player = Sprite::new(
-            player_texture.id(),
-            Transform2D::from_translation(0.0, 0.0),
-            96.0,
-            96.0,
-        );
+        ctx.components()
+            .register::<PlayerController>("PlayerController")?;
 
-        Ok(Self { player_texture, player })
-    }
-
-    fn update(&mut self, ctx: &mut FrameContext<'_>) -> GameResult<()> {
-        let speed = 180.0 * ctx.delta_seconds();
-        self.player.transform.x += ctx.axis(KeyCode::ArrowLeft, KeyCode::ArrowRight) * speed;
-        self.player.transform.y += ctx.axis(KeyCode::ArrowUp, KeyCode::ArrowDown) * speed;
-        Ok(())
-    }
-
-    fn render(&self, ctx: &mut RenderContext) {
-        ctx.clear(ClearColor::CORNFLOWER);
-        ctx.texture(&self.player_texture);
-        ctx.sprite(self.player);
+        Ok(Self)
     }
 }
 
 fn main() -> GameResult<()> {
-    App::new("my seishin2d game")
-        .window_size(960, 540)
-        .asset_root("assets")
-        .run::<Game>()
+    seishin2d::run::<Game>()
 }
 ```
+
+Projects are configured by `Seishin.toml`. Virtual path schemes are explicit:
+
+- `asset://` resolves under `[assets].root` for images, audio, video, fonts, and other media.
+- `res://` resolves under `[resources].root` for scenes, prefabs, configuration, scripts, markup, and data files.
+- `user://` is reserved for writable user data such as saves/settings.
+
+For larger games, prefer scene/prefab/component composition over storing every entity handle in `main.rs`:
+
+```txt
+resources/scenes/   map and screen placement
+resources/prefabs/  reusable entity composition
+resources/data/     characters, items, quests, dialogue, and other game data
+src/components/     Rust behavior registered by type name
+```
+
+`main.rs` can register custom behavior and load the scene:
+
+```rust
+ctx.components()
+    .register::<PlayerController>("PlayerController")?;
+```
+
+`seishin2d::run::<Game>()` discovers `Seishin.toml`, lets `Game2D::new` register components, then automatically loads `[game].main_scene`.
+
+Components can load their own game data/configuration through the resource API:
+
+```rust
+let config = ctx
+    .resources()
+    .toml("res://data/components/player_controller.toml")?;
+let speed = config.f32("speed").unwrap_or(180.0);
+```
+
+The current dialogue MVP opens/closes via the configured `interact` action and presents text through `tracing` logs. On-screen text/UI is a future rendering feature.
 
 See the complete example in [`examples/basic_2d`](examples/basic_2d).
 
@@ -308,8 +323,7 @@ Manual demo checklist:
 - Run `cargo run -p seishin2d_basic_2d`.
 - Confirm a desktop window opens.
 - Confirm the sprite appears over a clear background.
-- Confirm arrow keys move the sprite.
-- Press Space and confirm sound plays or a controlled skip is logged.
+- Confirm arrow keys and WASD move the sprite through the configured `move` input action.
 - Press Escape or close the window and confirm clean shutdown.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

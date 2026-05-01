@@ -4,6 +4,11 @@ pub enum KeyCode {
     ArrowDown,
     ArrowLeft,
     ArrowRight,
+    KeyW,
+    KeyA,
+    KeyS,
+    KeyD,
     Space,
+    Enter,
     Escape,
 }
