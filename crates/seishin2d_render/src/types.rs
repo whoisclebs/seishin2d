@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use seishin2d_core::Transform2D;
 
 use crate::RenderError;
@@ -99,7 +101,7 @@ pub struct TextureData {
     id: TextureId,
     width: u32,
     height: u32,
-    pixels_rgba8: Vec<u8>,
+    pixels_rgba8: Arc<[u8]>,
 }
 
 impl TextureData {
@@ -138,7 +140,7 @@ impl TextureData {
             id,
             width,
             height,
-            pixels_rgba8,
+            pixels_rgba8: pixels_rgba8.into(),
         })
     }
 
@@ -155,7 +157,7 @@ impl TextureData {
     }
 
     pub fn pixels_rgba8(&self) -> &[u8] {
-        &self.pixels_rgba8
+        self.pixels_rgba8.as_ref()
     }
 }
 
