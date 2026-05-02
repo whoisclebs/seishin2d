@@ -637,10 +637,7 @@ impl Assets {
             image.pixels_rgba8().to_vec(),
         )?;
 
-        let texture = Texture {
-            id: texture_id,
-            data: Arc::new(data),
-        };
+        let texture = Texture { data };
         self.texture_cache
             .insert(path.as_str().to_string(), texture.clone());
 
@@ -650,13 +647,12 @@ impl Assets {
 
 #[derive(Debug, Clone)]
 pub struct Texture {
-    id: TextureId,
-    data: Arc<TextureData>,
+    data: TextureData,
 }
 
 impl Texture {
     pub fn id(&self) -> TextureId {
-        self.id
+        self.data.id()
     }
 
     pub fn data(&self) -> &TextureData {
@@ -2209,11 +2205,8 @@ mod tests {
     #[test]
     fn world_renders_spawned_sprite_entities() {
         let texture = Texture {
-            id: TextureId::new(7),
-            data: Arc::new(
-                TextureData::rgba8(TextureId::new(7), 1, 1, vec![255, 255, 255, 255])
-                    .expect("valid texture"),
-            ),
+            data: TextureData::rgba8(TextureId::new(7), 1, 1, vec![255, 255, 255, 255])
+                .expect("valid texture"),
         };
         let mut world = World::default();
         let entity = world.spawn_sprite(SpriteBundle {
