@@ -4,7 +4,7 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Once},
+    sync::Once,
 };
 
 use seishin2d_assets::{AssetHandle, AssetLoader, AssetPath, AssetRoot};
