@@ -31,7 +31,7 @@ seishin2d_assets = { path = "crates/seishin2d_assets" }
 seishin2d_audio = { path = "crates/seishin2d_audio" }
 seishin2d_physics = { path = "crates/seishin2d_physics" }
 bytemuck = { version = "1.15.0", features = ["derive"] }
-kira = { version = "0.8.7", default-features = false, features = ["cpal", "wav"] }
+kira = { version = "0.12.0", default-features = false, features = ["cpal", "wav"] }
 pollster = "0.4.0"
 raw-window-handle = "0.6.2"
 serde = { version = "1.0.228", features = ["derive"] }
