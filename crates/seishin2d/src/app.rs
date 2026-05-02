@@ -614,9 +614,8 @@ impl Assets {
         let virtual_path = VirtualPath::parse(&requested)?;
         ensure_asset_scheme(&virtual_path)?;
         let path = AssetPath::new(virtual_path.relative_path())?;
-        let cache_key = path.as_str().to_string();
 
-        if let Some(texture) = self.texture_cache.get(&cache_key) {
+        if let Some(texture) = self.texture_cache.get(path.as_str()) {
             return Ok(texture.clone());
         }
 
@@ -642,7 +641,8 @@ impl Assets {
             id: texture_id,
             data: Arc::new(data),
         };
-        self.texture_cache.insert(cache_key, texture.clone());
+        self.texture_cache
+            .insert(path.as_str().to_string(), texture.clone());
 
         Ok(texture)
     }
