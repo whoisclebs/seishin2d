@@ -126,25 +126,16 @@ fn build_web_example(example: &str, release: bool) -> Result<(), String> {
 fn example_package_name(example_dir: &Path) -> Result<String, String> {
     let manifest =
         fs::read_to_string(example_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
-    let mut in_package = false;
-    for line in manifest.lines() {
-        let trimmed = line.trim();
-        if trimmed == "[package]" {
-            in_package = true;
-            continue;
-        }
-        if in_package && trimmed.starts_with('[') {
-            break;
-        }
-        if in_package && trimmed.starts_with("name") {
-            return trimmed
-                .split_once('=')
-                .map(|(_, value)| value.trim().trim_matches('"').to_string())
-                .ok_or_else(|| "invalid package name in Cargo.toml".to_string());
-        }
-    }
+    let manifest = manifest
+        .parse::<toml::Value>()
+        .map_err(|error| format!("invalid example Cargo.toml: {error}"))?;
 
-    Err("package name not found in example Cargo.toml".to_string())
+    manifest
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml::Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| "package name not found in example Cargo.toml".to_string())
 }
 
 fn copy_if_exists(from: &Path, to: &Path) -> Result<(), String> {

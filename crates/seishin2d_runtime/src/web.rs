@@ -145,6 +145,8 @@ pub fn run_desktop<G: DesktopGame>(
         let mut input = DesktopInputFrame::default();
         let runtime_error = Rc::new(RefCell::new(None));
         let shared_runtime_error = Rc::clone(&runtime_error);
+        let mut shutdown = false;
+        let mut exit_requested = false;
 
         event_loop.spawn(move |event, event_loop| {
             let _keep_window_alive = &window;
@@ -156,7 +158,7 @@ pub fn run_desktop<G: DesktopGame>(
                     event,
                 } if current_window_id == window_id => match event {
                     WindowEvent::CloseRequested => {
-                        event_loop.exit();
+                        exit_requested = true;
                     }
                     WindowEvent::Resized(size) => {
                         renderer.resize(RenderSize::new(size.width, size.height));
@@ -169,10 +171,8 @@ pub fn run_desktop<G: DesktopGame>(
                 Event::AboutToWait => {
                     let escape_requested = input.begin_game_frame(game.input_state());
 
-                    if escape_requested {
-                        if let Err(error) = game.shutdown(&mut engine) {
-                            log_web_error(&format!("game shutdown failed: {error}"));
-                        }
+                    if exit_requested || escape_requested {
+                        shutdown_web_game(&mut game, &mut engine, &mut shutdown);
                         event_loop.exit();
                         return;
                     }
@@ -187,15 +187,20 @@ pub fn run_desktop<G: DesktopGame>(
                             Err(error) => {
                                 *shared_runtime_error.borrow_mut() = Some(error.to_string());
                                 log_web_error(&format!("render failed: {error}"));
+                                shutdown_web_game(&mut game, &mut engine, &mut shutdown);
                                 event_loop.exit();
                             }
                         },
                         Err(error) => {
                             *shared_runtime_error.borrow_mut() = Some(error.to_string());
                             log_web_error(&format!("update failed: {error}"));
+                            shutdown_web_game(&mut game, &mut engine, &mut shutdown);
                             event_loop.exit();
                         }
                     }
+                }
+                Event::LoopExiting if !shutdown => {
+                    shutdown_web_game(&mut game, &mut engine, &mut shutdown);
                 }
                 _ => {}
             }
@@ -203,6 +208,18 @@ pub fn run_desktop<G: DesktopGame>(
     });
 
     Ok(())
+}
+
+fn shutdown_web_game<G: DesktopGame>(game: &mut G, engine: &mut Engine, shutdown: &mut bool) {
+    if *shutdown {
+        return;
+    }
+
+    if let Err(error) = game.shutdown(engine) {
+        log_web_error(&format!("game shutdown failed: {error}"));
+    }
+
+    *shutdown = true;
 }
 
 fn map_winit_key_code(key: PhysicalKey) -> Option<KeyCode> {
