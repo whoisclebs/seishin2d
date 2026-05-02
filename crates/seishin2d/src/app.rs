@@ -4,7 +4,7 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
-    sync::Once,
+    sync::{Arc, Once},
 };
 
 use seishin2d_assets::{AssetHandle, AssetLoader, AssetPath, AssetRoot};
@@ -573,6 +573,7 @@ impl ComponentRegistry {
 pub struct Assets {
     loader: AssetLoader,
     next_texture_id: u64,
+    texture_cache: HashMap<String, Texture>,
 }
 
 impl Assets {
@@ -580,6 +581,7 @@ impl Assets {
         Self {
             loader: AssetLoader::new(root),
             next_texture_id: 1,
+            texture_cache: HashMap::new(),
         }
     }
 
@@ -612,6 +614,12 @@ impl Assets {
         let virtual_path = VirtualPath::parse(&requested)?;
         ensure_asset_scheme(&virtual_path)?;
         let path = AssetPath::new(virtual_path.relative_path())?;
+        let cache_key = path.as_str().to_string();
+
+        if let Some(texture) = self.texture_cache.get(&cache_key) {
+            return Ok(texture.clone());
+        }
+
         let image = self.loader.load_image(&path).map_err(|error| {
             let resolved = self.loader.root().resolve(&path);
             PathDiagnosticError::asset(
@@ -630,17 +638,20 @@ impl Assets {
             image.pixels_rgba8().to_vec(),
         )?;
 
-        Ok(Texture {
+        let texture = Texture {
             id: texture_id,
-            data,
-        })
+            data: Arc::new(data),
+        };
+        self.texture_cache.insert(cache_key, texture.clone());
+
+        Ok(texture)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Texture {
     id: TextureId,
-    data: TextureData,
+    data: Arc<TextureData>,
 }
 
 impl Texture {
@@ -2199,8 +2210,10 @@ mod tests {
     fn world_renders_spawned_sprite_entities() {
         let texture = Texture {
             id: TextureId::new(7),
-            data: TextureData::rgba8(TextureId::new(7), 1, 1, vec![255, 255, 255, 255])
-                .expect("valid texture"),
+            data: Arc::new(
+                TextureData::rgba8(TextureId::new(7), 1, 1, vec![255, 255, 255, 255])
+                    .expect("valid texture"),
+            ),
         };
         let mut world = World::default();
         let entity = world.spawn_sprite(SpriteBundle {
@@ -2299,6 +2312,30 @@ mod tests {
             startup.world().data_ref(merchant, "character"),
             Some("res://data/characters/merchant.toml")
         );
+    }
+
+    #[test]
+    fn main_scene_reuses_texture_assets_for_repeated_prefab_sprites() {
+        let mut startup = basic_2d_startup();
+
+        startup
+            .components()
+            .register::<TestController>("PlayerController")
+            .expect("register component");
+        startup.load_main_scene().expect("load scene");
+
+        let mut render = RenderContext::new(ClearColor::BLACK);
+        startup.world().render_into(&mut render);
+        let state = render.state();
+        let texture_ids = state
+            .sprites
+            .iter()
+            .map(|sprite| sprite.texture_id)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(state.sprites.len(), 3);
+        assert_eq!(texture_ids.len(), 1);
+        assert_eq!(state.textures.len(), 1);
     }
 
     #[test]
