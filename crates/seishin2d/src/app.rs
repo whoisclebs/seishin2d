@@ -808,14 +808,21 @@ impl World {
         entities
     }
 
+    /// Returns the lowest entity id with the requested name.
+    ///
+    /// Scene names are not required to be unique yet, so duplicate-name lookups
+    /// are deterministic instead of depending on `HashMap` iteration order.
     pub fn entity_by_name(&self, name: &str) -> Option<Entity> {
-        self.entities.iter().find_map(|(entity, record)| {
-            record
-                .name
-                .as_deref()
-                .is_some_and(|value| value == name)
-                .then_some(*entity)
-        })
+        self.entities
+            .iter()
+            .filter_map(|(entity, record)| {
+                record
+                    .name
+                    .as_deref()
+                    .is_some_and(|value| value == name)
+                    .then_some(*entity)
+            })
+            .min()
     }
 
     pub fn tags(&self, entity: Entity) -> Option<&[String]> {
@@ -2246,6 +2253,16 @@ mod tests {
     }
 
     #[test]
+    fn entity_by_name_returns_lowest_entity_id_for_duplicate_names() {
+        let mut world = World::default();
+        let first = world.spawn_scene_entity(named_entity("Duplicate"));
+        let second = world.spawn_scene_entity(named_entity("Duplicate"));
+
+        assert!(first < second);
+        assert_eq!(world.entity_by_name("Duplicate"), Some(first));
+    }
+
+    #[test]
     fn scene_transform_overrides_are_field_level() {
         let base = Transform2D {
             x: 1.0,
@@ -2418,5 +2435,16 @@ mod tests {
             paths,
             Some("res://scenes/main.scene.toml".to_string()),
         )
+    }
+
+    fn named_entity(name: &str) -> SceneEntityRuntime {
+        SceneEntityRuntime {
+            name: Some(name.to_string()),
+            tags: Vec::new(),
+            data_refs: HashMap::new(),
+            custom_components: Vec::new(),
+            transform: Transform2D::default(),
+            sprite: None,
+        }
     }
 }
