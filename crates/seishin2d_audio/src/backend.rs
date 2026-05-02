@@ -1,8 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use kira::{
-    manager::{backend::DefaultBackend, AudioManager, AudioManagerSettings},
-    sound::static_sound::{StaticSoundData, StaticSoundSettings},
+    sound::static_sound::StaticSoundData, AudioManager, AudioManagerSettings, DefaultBackend,
 };
 
 use crate::{AudioError, AudioSkipReason, PlaybackResult};
@@ -24,13 +23,10 @@ impl AudioBackend {
     }
 
     pub(crate) fn load_sound(&mut self, id: u64, path: PathBuf) -> Result<(), AudioError> {
-        let sound =
-            StaticSoundData::from_file(&path, StaticSoundSettings::default()).map_err(|error| {
-                AudioError::Decode {
-                    path,
-                    reason: error.to_string(),
-                }
-            })?;
+        let sound = StaticSoundData::from_file(&path).map_err(|error| AudioError::Decode {
+            path,
+            reason: error.to_string(),
+        })?;
 
         self.sounds.insert(id, sound);
         Ok(())
