@@ -610,8 +610,8 @@ impl Assets {
     }
 
     pub fn load_texture(&mut self, path: impl AsRef<str>) -> GameResult<Texture> {
-        let requested = path.as_ref().to_string();
-        let virtual_path = VirtualPath::parse(&requested)?;
+        let requested = path.as_ref();
+        let virtual_path = VirtualPath::parse(requested)?;
         ensure_asset_scheme(&virtual_path)?;
         let path = AssetPath::new(virtual_path.relative_path())?;
 
@@ -622,7 +622,7 @@ impl Assets {
         let image = self.loader.load_image(&path).map_err(|error| {
             let resolved = self.loader.root().resolve(&path);
             PathDiagnosticError::asset(
-                requested.clone(),
+                requested.to_string(),
                 resolved,
                 self.loader.root().path(),
                 error,
