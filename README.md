@@ -24,7 +24,7 @@
 
 `seishin2d` is a native 2D game engine prototype written in Rust. The project starts with a small desktop MVP and is designed around a stable public API boundary so future language bindings can call into the engine through C ABI / FFI instead of touching Rust internals.
 
-The current MVP opens a desktop window, renders a sprite, loads assets from disk, handles keyboard input, and exposes a small future-safe FFI lifecycle boundary.
+The current MVP opens a desktop window or browser canvas, renders a sprite, loads assets, handles keyboard input, and exposes a small future-safe FFI lifecycle boundary.
 
 ## Table of Contents
 
@@ -65,6 +65,7 @@ Initial targets:
 
 - Windows desktop
 - Linux desktop
+- WebAssembly/browser MVP
 
 Future targets:
 
@@ -85,6 +86,7 @@ The repository currently contains the MVP vertical slice:
 - simple camera support;
 - asset loading from disk;
 - simple audio playback with graceful degradation;
+- browser/WebAssembly build support with no-op audio fallback;
 - playable `examples/basic_2d` example;
 - C ABI lifecycle smoke boundary in `seishin2d_ffi`.
 
@@ -146,6 +148,24 @@ cargo build --workspace
 ```sh
 cargo run -p seishin2d_basic_2d
 ```
+
+### Build The Web Demo
+
+Install the wasm target and `wasm-bindgen` CLI, then export the example:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+cargo run -p xtask -- web-build --example basic_2d
+```
+
+The export is written to `target/web/basic_2d`. Serve it locally with:
+
+```sh
+cargo run -p xtask -- web-serve --example basic_2d
+```
+
+The web MVP keeps the same game entry point (`seishin2d::run::<Game>()`) but runs with browser-specific runtime internals. Audio is currently a no-op fallback on wasm; assets and resources are fetched from the static export using the existing `asset://` and `res://` schemes.
 
 Controls:
 
@@ -284,6 +304,8 @@ Useful commands:
 ```sh
 cargo run -p seishin2d_basic_2d
 cargo run -p xtask -- check
+cargo run -p xtask -- web-build --example basic_2d
+cargo run -p xtask -- web-serve --example basic_2d
 cargo test -p seishin2d_core
 cargo test -p seishin2d_render
 ```
@@ -316,6 +338,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 cargo build --workspace
+cargo build --target wasm32-unknown-unknown -p seishin2d_basic_2d
 ```
 
 Manual demo checklist:

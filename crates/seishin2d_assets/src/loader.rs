@@ -1,4 +1,10 @@
-use std::{fs, io, path::PathBuf};
+use std::io;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs;
 
 use crate::{decode_image, AssetError, AssetPath, AssetRoot, ImageData};
 
@@ -17,12 +23,25 @@ impl AssetLoader {
     }
 
     pub fn load_image(&self, asset_path: &AssetPath) -> Result<ImageData, AssetError> {
-        let disk_path = self.resolve_existing_path(asset_path)?;
-        let bytes = fs::read(&disk_path).map_err(|error| map_io_error(disk_path.clone(), error))?;
+        #[cfg(target_arch = "wasm32")]
+        {
+            let url = self.root.resolve(asset_path);
+            let bytes = fetch_bytes(&url)?;
 
-        decode_image(&disk_path, &bytes)
+            return decode_image(&url, &bytes);
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let disk_path = self.resolve_existing_path(asset_path)?;
+            let bytes =
+                fs::read(&disk_path).map_err(|error| map_io_error(disk_path.clone(), error))?;
+
+            decode_image(&disk_path, &bytes)
+        }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn resolve_existing_path(&self, asset_path: &AssetPath) -> Result<PathBuf, AssetError> {
         let joined = self.root.resolve(asset_path);
 
@@ -40,6 +59,49 @@ impl AssetLoader {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
+    use js_sys::Uint8Array;
+    use web_sys::{XmlHttpRequest, XmlHttpRequestResponseType};
+
+    let url = path.to_string_lossy().replace('\\', "/");
+    let request = XmlHttpRequest::new().map_err(|_| AssetError::Io {
+        path: path.to_path_buf(),
+        kind: io::ErrorKind::Other,
+    })?;
+    request
+        .open_with_async("GET", &url, false)
+        .map_err(|_| AssetError::Io {
+            path: path.to_path_buf(),
+            kind: io::ErrorKind::Other,
+        })?;
+    request.set_response_type(XmlHttpRequestResponseType::Arraybuffer);
+    request.send().map_err(|_| AssetError::Io {
+        path: path.to_path_buf(),
+        kind: io::ErrorKind::Other,
+    })?;
+
+    if request.status().unwrap_or(0) == 404 {
+        return Err(AssetError::NotFound(path.to_path_buf()));
+    }
+
+    if !(200..300).contains(&request.status().unwrap_or(0)) {
+        return Err(AssetError::Io {
+            path: path.to_path_buf(),
+            kind: io::ErrorKind::Other,
+        });
+    }
+
+    let response = request.response().map_err(|_| AssetError::Io {
+        path: path.to_path_buf(),
+        kind: io::ErrorKind::Other,
+    })?;
+    let bytes = Uint8Array::new(&response).to_vec();
+
+    Ok(bytes)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn map_io_error(path: PathBuf, error: io::Error) -> AssetError {
     match error.kind() {
         io::ErrorKind::NotFound => AssetError::NotFound(path),

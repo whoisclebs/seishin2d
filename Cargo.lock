@@ -1652,6 +1652,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "web-sys",
 ]
 
 [[package]]
@@ -1659,6 +1660,8 @@ name = "seishin2d_assets"
 version = "0.1.0"
 dependencies = [
  "image",
+ "js-sys",
+ "web-sys",
 ]
 
 [[package]]
@@ -1721,6 +1724,8 @@ dependencies = [
  "seishin2d_core",
  "seishin2d_input",
  "seishin2d_render",
+ "wasm-bindgen-futures",
+ "web-sys",
  "winit",
 ]
 

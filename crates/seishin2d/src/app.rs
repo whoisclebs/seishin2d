@@ -2,10 +2,12 @@ use std::{
     any::TypeId,
     collections::{HashMap, HashSet},
     error::Error,
-    fs,
     path::{Path, PathBuf},
     sync::Once,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs;
 
 use seishin2d_assets::{AssetHandle, AssetLoader, AssetPath, AssetRoot};
 use seishin2d_audio::{AudioSystem, PlaybackResult, SoundAsset};
@@ -102,7 +104,7 @@ impl Resources {
     {
         let path = path.as_ref();
         let resolved = self.paths.resolve_resource(path)?;
-        let source = fs::read_to_string(&resolved).map_err(|error| {
+        let source = read_to_string(&resolved).map_err(|error| {
             PathDiagnosticError::resource(
                 path.to_string(),
                 resolved.clone(),
@@ -200,7 +202,12 @@ impl App {
     }
 
     pub fn from_project(path: impl AsRef<Path>) -> GameResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        let path = path.as_ref().to_path_buf();
+
+        #[cfg(not(target_arch = "wasm32"))]
         let path = fs::canonicalize(path.as_ref())?;
+
         let project = ProjectConfig::from_path(&path)?;
         let project_dir = path.parent().unwrap_or_else(|| Path::new("."));
 
@@ -208,8 +215,16 @@ impl App {
     }
 
     pub fn discover_project() -> GameResult<Self> {
-        let project_path = discover_project_file()?;
-        Self::from_project(project_path)
+        #[cfg(target_arch = "wasm32")]
+        {
+            return Self::from_project(PathBuf::from("Seishin.toml"));
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let project_path = discover_project_file()?;
+            Self::from_project(project_path)
+        }
     }
 
     pub fn window_size(mut self, width: u32, height: u32) -> Self {
@@ -1367,12 +1382,12 @@ fn update_builtin_dialogue_interaction(context: &mut FrameContext<'_>) -> GameRe
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(any(test, target_arch = "wasm32"))]
 fn default_audio_system() -> AudioSystem {
-    AudioSystem::without_backend("test backend disabled")
+    AudioSystem::without_backend("audio backend disabled for this target")
 }
 
-#[cfg(not(test))]
+#[cfg(all(not(test), not(target_arch = "wasm32")))]
 fn default_audio_system() -> AudioSystem {
     AudioSystem::new()
 }
@@ -1390,7 +1405,7 @@ struct ProjectConfig {
 
 impl ProjectConfig {
     fn from_path(path: &Path) -> GameResult<Self> {
-        let source = fs::read_to_string(path)?;
+        let source = read_to_string(path)?;
         Ok(toml::from_str(&source)?)
     }
 }
@@ -1741,6 +1756,7 @@ fn ensure_resource_scheme(path: &VirtualPath<'_>) -> GameResult<()> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn discover_project_file() -> GameResult<PathBuf> {
     let current_dir = std::env::current_dir()?;
 
@@ -1772,20 +1788,63 @@ fn discover_project_file() -> GameResult<PathBuf> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn read_to_string(path: &Path) -> std::io::Result<String> {
+    fs::read_to_string(path)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn read_to_string(path: &Path) -> std::io::Result<String> {
+    use web_sys::XmlHttpRequest;
+
+    let url = path.to_string_lossy().replace('\\', "/");
+    let request = XmlHttpRequest::new().map_err(|_| std::io::ErrorKind::Other)?;
+    request
+        .open_with_async("GET", &url, false)
+        .map_err(|_| std::io::ErrorKind::Other)?;
+    request.send().map_err(|_| std::io::ErrorKind::Other)?;
+
+    match request.status().unwrap_or(0) {
+        200..=299 => request
+            .response_text()
+            .map_err(|_| std::io::ErrorKind::Other)?
+            .ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into()),
+        404 => Err(std::io::ErrorKind::NotFound.into()),
+        _ => Err(std::io::ErrorKind::Other.into()),
+    }
+}
+
 fn validate_main_scene(main_scene: &str, paths: &ProjectPaths) -> GameResult<()> {
     let resolved = paths.resolve_resource(main_scene)?;
 
-    if !resolved.is_file() {
-        return Err(PathDiagnosticError::resource(
-            main_scene.to_string(),
-            resolved,
-            &paths.resource_root,
-            std::io::Error::new(std::io::ErrorKind::NotFound, "main scene file not found"),
-        )
-        .into());
+    #[cfg(target_arch = "wasm32")]
+    {
+        read_to_string(&resolved).map_err(|error| {
+            PathDiagnosticError::resource(
+                main_scene.to_string(),
+                resolved.clone(),
+                &paths.resource_root,
+                error,
+            )
+        })?;
+
+        return Ok(());
     }
 
-    Ok(())
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if !resolved.is_file() {
+            return Err(PathDiagnosticError::resource(
+                main_scene.to_string(),
+                resolved,
+                &paths.resource_root,
+                std::io::Error::new(std::io::ErrorKind::NotFound, "main scene file not found"),
+            )
+            .into());
+        }
+
+        Ok(())
+    }
 }
 
 fn load_main_scene(main_scene: &str, startup: &mut StartupContext) -> GameResult<()> {
@@ -1816,7 +1875,7 @@ fn load_main_scene(main_scene: &str, startup: &mut StartupContext) -> GameResult
 
 fn load_scene_config(path: &str, paths: &ProjectPaths) -> GameResult<SceneConfig> {
     let resolved = paths.resolve_resource(path)?;
-    let source = fs::read_to_string(&resolved).map_err(|error| {
+    let source = read_to_string(&resolved).map_err(|error| {
         PathDiagnosticError::resource(
             path.to_string(),
             resolved.clone(),
@@ -1833,7 +1892,7 @@ fn load_scene_config(path: &str, paths: &ProjectPaths) -> GameResult<SceneConfig
 
 fn load_prefab_config(path: &str, paths: &ProjectPaths) -> GameResult<PrefabConfig> {
     let resolved = paths.resolve_resource(path)?;
-    let source = fs::read_to_string(&resolved).map_err(|error| {
+    let source = read_to_string(&resolved).map_err(|error| {
         PathDiagnosticError::resource(
             path.to_string(),
             resolved.clone(),

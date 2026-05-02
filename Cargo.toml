@@ -32,11 +32,14 @@ seishin2d_audio = { path = "crates/seishin2d_audio" }
 seishin2d_physics = { path = "crates/seishin2d_physics" }
 bytemuck = { version = "1.15.0", features = ["derive"] }
 kira = { version = "0.12.0", default-features = false, features = ["cpal", "wav"] }
+js-sys = "0.3.97"
 pollster = "0.4.0"
 raw-window-handle = "0.6.2"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "0.8.23"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+wasm-bindgen-futures = "0.4.70"
+web-sys = "0.3.97"
 wgpu = "0.19.4"
 winit = "0.29.15"

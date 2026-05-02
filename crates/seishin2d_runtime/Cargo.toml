@@ -12,3 +12,7 @@ seishin2d_input.workspace = true
 seishin2d_render.workspace = true
 pollster.workspace = true
 winit.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["console", "Document", "Element", "HtmlCanvasElement", "Window"] }

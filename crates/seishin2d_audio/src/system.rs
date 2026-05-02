@@ -1,6 +1,14 @@
-use std::{collections::HashSet, fs, io, path::PathBuf};
+use std::collections::HashSet;
 
-use seishin2d_assets::{AssetError, AssetHandle, AssetPath, AssetRoot};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs, io};
+
+#[cfg(not(target_arch = "wasm32"))]
+use seishin2d_assets::AssetError;
+use seishin2d_assets::{AssetHandle, AssetPath, AssetRoot};
 
 use crate::{backend::AudioBackend, AudioError, AudioSkipReason, PlaybackResult, SoundAsset};
 
@@ -46,6 +54,10 @@ impl AudioSystem {
         root: &AssetRoot,
         path: &AssetPath,
     ) -> Result<AssetHandle<SoundAsset>, AudioError> {
+        #[cfg(target_arch = "wasm32")]
+        let disk_path = root.resolve(path);
+
+        #[cfg(not(target_arch = "wasm32"))]
         let disk_path = resolve_existing_asset(root, path)?;
         let id = self.next_sound_id;
         self.next_sound_id += 1;
@@ -81,6 +93,7 @@ impl Default for AudioSystem {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn resolve_existing_asset(root: &AssetRoot, asset_path: &AssetPath) -> Result<PathBuf, AssetError> {
     let joined = root.resolve(asset_path);
 
@@ -97,6 +110,7 @@ fn resolve_existing_asset(root: &AssetRoot, asset_path: &AssetPath) -> Result<Pa
     Ok(canonical)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn map_io_error(path: PathBuf, error: io::Error) -> AssetError {
     match error.kind() {
         io::ErrorKind::NotFound => AssetError::NotFound(path),
