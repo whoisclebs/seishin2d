@@ -39,4 +39,4 @@ toml = "0.8.23"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 wgpu = "0.19.4"
-winit = "0.29.15"
+winit = "0.30.13"
