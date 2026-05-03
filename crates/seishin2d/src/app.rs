@@ -2053,6 +2053,21 @@ impl EntityBlueprint {
         for value in self.data_refs.values() {
             let resolved = paths.resolve_resource(value)?;
 
+            #[cfg(target_arch = "wasm32")]
+            {
+                read_to_string(&resolved).map_err(|error| {
+                    PathDiagnosticError::resource(
+                        value.clone(),
+                        resolved.clone(),
+                        &paths.resource_root,
+                        error,
+                    )
+                })?;
+
+                continue;
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
             if !resolved.is_file() {
                 return Err(PathDiagnosticError::resource(
                     value.clone(),
