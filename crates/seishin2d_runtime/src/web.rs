@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant};
-
 use seishin2d_core::{Engine, Game};
 use seishin2d_input::{InputState, KeyCode};
 use seishin2d_render::{RenderSize, RenderState, Renderer};
@@ -146,10 +144,10 @@ pub fn run_desktop<G: DesktopGame>(
         let mut input = DesktopInputFrame::default();
         let mut shutdown = false;
         let mut exit_requested = false;
-        let timestep = Duration::from_secs_f32(config.timestep.delta_seconds);
-        let max_frame_time = Duration::from_millis(250);
-        let mut last_frame = Instant::now();
-        let mut accumulator = Duration::ZERO;
+        let timestep = f64::from(config.timestep.delta_seconds);
+        let max_frame_time = 0.25;
+        let mut last_frame = browser_now_seconds();
+        let mut accumulator = 0.0;
 
         event_loop.spawn(move |event, event_loop| {
             let _keep_window_alive = &window;
@@ -172,8 +170,8 @@ pub fn run_desktop<G: DesktopGame>(
                     _ => {}
                 },
                 Event::AboutToWait => {
-                    let now = Instant::now();
-                    let frame_time = now.duration_since(last_frame).min(max_frame_time);
+                    let now = browser_now_seconds();
+                    let frame_time = (now - last_frame).min(max_frame_time);
                     last_frame = now;
                     accumulator += frame_time;
 
@@ -197,7 +195,7 @@ pub fn run_desktop<G: DesktopGame>(
                             return;
                         }
 
-                        accumulator -= timestep;
+                        accumulator = (accumulator - timestep).max(0.0);
                     }
 
                     match renderer.render(game.render_state()) {
@@ -218,6 +216,13 @@ pub fn run_desktop<G: DesktopGame>(
     });
 
     Ok(())
+}
+
+fn browser_now_seconds() -> f64 {
+    web_sys::window()
+        .and_then(|window| window.performance())
+        .map(|performance| performance.now() / 1000.0)
+        .unwrap_or(0.0)
 }
 
 fn create_canvas(
