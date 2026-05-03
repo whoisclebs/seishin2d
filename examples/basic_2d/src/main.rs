@@ -15,6 +15,18 @@ impl Game2D for Game {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> GameResult<()> {
     seishin2d::run::<Game>()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn wasm_start() {
+    if let Err(error) = seishin2d::run::<Game>() {
+        panic!("seishin2d web startup failed: {error}");
+    }
 }
