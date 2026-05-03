@@ -372,9 +372,14 @@ impl LoggingConfig {
         LOGGING_INIT.call_once(move || {
             let env_filter = EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| EnvFilter::new(default_filter));
-            let _ = tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .try_init();
+
+            #[cfg(target_arch = "wasm32")]
+            let subscriber = tracing_subscriber::fmt().without_time();
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let subscriber = tracing_subscriber::fmt();
+
+            let _ = subscriber.with_env_filter(env_filter).try_init();
         });
     }
 }
