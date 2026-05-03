@@ -61,6 +61,9 @@ impl Renderer {
                 &wgpu::DeviceDescriptor {
                     label: Some("seishin2d render device"),
                     required_features: wgpu::Features::empty(),
+                    #[cfg(target_arch = "wasm32")]
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                    #[cfg(not(target_arch = "wasm32"))]
                     required_limits: wgpu::Limits::downlevel_defaults(),
                 },
                 None,
