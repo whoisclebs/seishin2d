@@ -61,8 +61,7 @@ impl AssetLoader {
 
 #[cfg(target_arch = "wasm32")]
 fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
-    use js_sys::Uint8Array;
-    use web_sys::{XmlHttpRequest, XmlHttpRequestResponseType};
+    use web_sys::XmlHttpRequest;
 
     let url = path.to_string_lossy().replace('\\', "/");
     let request = XmlHttpRequest::new().map_err(|_| AssetError::Io {
@@ -75,7 +74,12 @@ fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
             path: path.to_path_buf(),
             kind: io::ErrorKind::Other,
         })?;
-    request.set_response_type(XmlHttpRequestResponseType::Arraybuffer);
+    request
+        .override_mime_type("text/plain; charset=x-user-defined")
+        .map_err(|_| AssetError::Io {
+            path: path.to_path_buf(),
+            kind: io::ErrorKind::Other,
+        })?;
     request.send().map_err(|_| AssetError::Io {
         path: path.to_path_buf(),
         kind: io::ErrorKind::Other,
@@ -93,11 +97,18 @@ fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
         });
     }
 
-    let response = request.response().map_err(|_| AssetError::Io {
+    let response = request.response_text().map_err(|_| AssetError::Io {
         path: path.to_path_buf(),
         kind: io::ErrorKind::Other,
     })?;
-    let bytes = Uint8Array::new(&response).to_vec();
+    let bytes = response
+        .ok_or_else(|| AssetError::Io {
+            path: path.to_path_buf(),
+            kind: io::ErrorKind::UnexpectedEof,
+        })?
+        .encode_utf16()
+        .map(|code_unit| (code_unit & 0xff) as u8)
+        .collect();
 
     Ok(bytes)
 }
