@@ -125,31 +125,53 @@ fn build_web_example(example: &str, release: bool) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     fs::write(output_dir.join("index.html"), web_index_html(&out_name))
         .map_err(|error| error.to_string())?;
-    write_web_manifests(&output_dir)?;
+    write_web_manifest(&output_dir)?;
 
     println!("web build written to {}", output_dir.display());
     Ok(())
 }
 
-fn write_web_manifests(output_dir: &Path) -> Result<(), String> {
+fn write_web_manifest(output_dir: &Path) -> Result<(), String> {
     let mut resources = vec!["Seishin.toml".to_string()];
     collect_manifest_paths(&output_dir.join("resources"), "resources", &mut resources)?;
     resources.sort();
     resources.dedup();
-    fs::write(
-        output_dir.join("seishin-web-resources.txt"),
-        resources.join("\n"),
-    )
-    .map_err(|error| error.to_string())?;
 
     let mut assets = Vec::new();
     collect_manifest_paths(&output_dir.join("assets"), "assets", &mut assets)?;
     assets.sort();
     assets.dedup();
-    fs::write(output_dir.join("seishin-web-assets.txt"), assets.join("\n"))
-        .map_err(|error| error.to_string())?;
+    let manifest = format!(
+        "{{\n  \"resources\": {},\n  \"assets\": {}\n}}\n",
+        json_string_array(&resources),
+        json_string_array(&assets)
+    );
+    fs::write(output_dir.join("web-manifest.json"), manifest).map_err(|error| error.to_string())?;
 
     Ok(())
+}
+
+fn json_string_array(values: &[String]) -> String {
+    let values = values
+        .iter()
+        .map(|value| format!("\"{}\"", json_escape(value)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{values}]")
+}
+
+fn json_escape(value: &str) -> String {
+    value
+        .chars()
+        .flat_map(|character| match character {
+            '\\' => "\\\\".chars().collect::<Vec<_>>(),
+            '"' => "\\\"".chars().collect::<Vec<_>>(),
+            '\n' => "\\n".chars().collect::<Vec<_>>(),
+            '\r' => "\\r".chars().collect::<Vec<_>>(),
+            '\t' => "\\t".chars().collect::<Vec<_>>(),
+            character => vec![character],
+        })
+        .collect()
 }
 
 fn collect_manifest_paths(

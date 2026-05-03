@@ -15,6 +15,61 @@ pub use app::{
     Resources, SpriteBuilder, SpriteBundle, SpriteRenderer, StartupContext, Texture, Vec2, World,
 };
 
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, serde::Deserialize)]
+pub struct WebManifest {
+    #[serde(default)]
+    pub resources: Vec<String>,
+    #[serde(default)]
+    pub assets: Vec<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn fetch_web_manifest(path: &str) -> Result<WebManifest, wasm_bindgen::JsValue> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+
+    let window =
+        web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window unavailable"))?;
+    let response = JsFuture::from(window.fetch_with_str(path)).await?;
+    let response = response.dyn_into::<web_sys::Response>()?;
+    if !response.ok() {
+        return Err(wasm_bindgen::JsValue::from_str(&format!(
+            "failed to fetch {path}: HTTP {}",
+            response.status()
+        )));
+    }
+
+    let text = JsFuture::from(response.text()?).await?;
+    let text = text
+        .as_string()
+        .ok_or_else(|| wasm_bindgen::JsValue::from_str("web manifest response was not text"))?;
+    let manifest = text
+        .parse::<toml::Value>()
+        .map_err(|error| wasm_bindgen::JsValue::from_str(&error.to_string()))?;
+    Ok(WebManifest {
+        resources: manifest_array(&manifest, "resources")?,
+        assets: manifest_array(&manifest, "assets")?,
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn manifest_array(manifest: &toml::Value, key: &str) -> Result<Vec<String>, wasm_bindgen::JsValue> {
+    manifest
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| wasm_bindgen::JsValue::from_str(&format!("web manifest missing `{key}`")))?
+        .iter()
+        .map(|value| {
+            value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
+                wasm_bindgen::JsValue::from_str(&format!(
+                    "web manifest `{key}` entry is not a string"
+                ))
+            })
+        })
+        .collect()
+}
+
 pub mod assets {
     pub use seishin_assets::*;
 }
@@ -82,13 +137,25 @@ macro_rules! seishin_main {
         #[wasm_bindgen::prelude::wasm_bindgen(start)]
         pub fn wasm_start() {
             $crate::spawn_local(async {
-                if let Err(error) = $crate::preload_web_resources("seishin-web-resources.txt").await {
-                    report_web_startup_error(&format!("seishin web resource preload failed: {error:?}"));
+                let manifest = match $crate::fetch_web_manifest("web-manifest.json").await {
+                    Ok(manifest) => manifest,
+                    Err(error) => {
+                        report_web_startup_error(&format!("seishin web manifest preload failed: {error:?}"));
+                        return;
+                    }
+                };
+
+                if let Err(error) = $crate::preload_web_resources(&manifest.resources).await {
+                    report_web_startup_error(&format!(
+                        "seishin web resource preload failed: {error:?}"
+                    ));
                     return;
                 }
 
-                if let Err(error) = $crate::preload_web_assets("seishin-web-assets.txt").await {
-                    report_web_startup_error(&format!("seishin web asset preload failed: {error:?}"));
+                if let Err(error) = $crate::preload_web_assets(&manifest.assets).await {
+                    report_web_startup_error(&format!(
+                        "seishin web asset preload failed: {error:?}"
+                    ));
                     return;
                 }
 

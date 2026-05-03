@@ -37,15 +37,10 @@ pub fn read_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn preload_web_assets(manifest_path: &str) -> Result<(), wasm_bindgen::JsValue> {
+pub async fn preload_web_assets(paths: &[String]) -> Result<(), wasm_bindgen::JsValue> {
     use wasm_bindgen_futures::JsFuture;
 
-    let manifest = fetch_text(manifest_path).await?;
-    for path in manifest
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-    {
+    for path in paths {
         let response = fetch_response(path).await?;
         let buffer = JsFuture::from(response.array_buffer()?).await?;
         let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
@@ -61,16 +56,6 @@ pub async fn preload_web_assets(manifest_path: &str) -> Result<(), wasm_bindgen:
 thread_local! {
     static WEB_ASSET_CACHE: std::cell::RefCell<std::collections::HashMap<String, Vec<u8>>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn fetch_text(path: &str) -> Result<String, wasm_bindgen::JsValue> {
-    use wasm_bindgen_futures::JsFuture;
-
-    let response = fetch_response(path).await?;
-    let text = JsFuture::from(response.text()?).await?;
-    text.as_string()
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str("fetch response was not text"))
 }
 
 #[cfg(target_arch = "wasm32")]

@@ -56,13 +56,8 @@ pub fn read_to_string(path: &Path) -> std::io::Result<String> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn preload_web_resources(manifest_path: &str) -> Result<(), wasm_bindgen::JsValue> {
-    let manifest = fetch_text(manifest_path).await?;
-    for path in manifest
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-    {
+pub async fn preload_web_resources(paths: &[String]) -> Result<(), wasm_bindgen::JsValue> {
+    for path in paths {
         let text = fetch_text(path).await?;
         WEB_RESOURCE_CACHE.with(|cache| {
             cache.borrow_mut().insert(path.to_string(), text);
