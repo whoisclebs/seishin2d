@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::AssetError;
 
@@ -26,56 +26,75 @@ pub fn read_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn read_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
-    use web_sys::XmlHttpRequest;
+    let key = web_path(path);
+    WEB_ASSET_CACHE.with(|cache| {
+        cache
+            .borrow()
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| AssetError::NotFound(path.to_path_buf()))
+    })
+}
 
-    let url = path.to_string_lossy().replace('\\', "/");
-    let request = XmlHttpRequest::new().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
-    request
-        .open_with_async("GET", &url, false)
-        .map_err(|_| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
-        })?;
-    request
-        .override_mime_type("text/plain; charset=x-user-defined")
-        .map_err(|_| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
-        })?;
-    request.send().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
+#[cfg(target_arch = "wasm32")]
+pub async fn preload_web_assets(manifest_path: &str) -> Result<(), wasm_bindgen::JsValue> {
+    use wasm_bindgen_futures::JsFuture;
 
-    let status = request.status().unwrap_or(0);
-    if status == 404 {
-        return Err(AssetError::NotFound(path.to_path_buf()));
-    }
-
-    if !(200..300).contains(&status) {
-        return Err(AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
+    let manifest = fetch_text(manifest_path).await?;
+    for path in manifest
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let response = fetch_response(path).await?;
+        let buffer = JsFuture::from(response.array_buffer()?).await?;
+        let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+        WEB_ASSET_CACHE.with(|cache| {
+            cache.borrow_mut().insert(path.to_string(), bytes);
         });
     }
 
-    let response = request.response_text().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
-    let bytes = response
-        .ok_or_else(|| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::UnexpectedEof,
-        })?
-        .encode_utf16()
-        .map(|code_unit| (code_unit & 0xff) as u8)
-        .collect();
+    Ok(())
+}
 
-    Ok(bytes)
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static WEB_ASSET_CACHE: std::cell::RefCell<std::collections::HashMap<String, Vec<u8>>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn fetch_text(path: &str) -> Result<String, wasm_bindgen::JsValue> {
+    use wasm_bindgen_futures::JsFuture;
+
+    let response = fetch_response(path).await?;
+    let text = JsFuture::from(response.text()?).await?;
+    text.as_string()
+        .ok_or_else(|| wasm_bindgen::JsValue::from_str("fetch response was not text"))
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn fetch_response(path: &str) -> Result<web_sys::Response, wasm_bindgen::JsValue> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+
+    let window =
+        web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window unavailable"))?;
+    let response = JsFuture::from(window.fetch_with_str(path)).await?;
+    let response = response.dyn_into::<web_sys::Response>()?;
+    if response.ok() {
+        Ok(response)
+    } else {
+        Err(wasm_bindgen::JsValue::from_str(&format!(
+            "failed to fetch {path}: HTTP {}",
+            response.status()
+        )))
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn web_path(path: &std::path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -105,9 +124,9 @@ pub fn canonical_asset_path(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn map_io_error(path: PathBuf, error: io::Error) -> AssetError {
+fn map_io_error(path: PathBuf, error: std::io::Error) -> AssetError {
     match error.kind() {
-        io::ErrorKind::NotFound => AssetError::NotFound(path),
+        std::io::ErrorKind::NotFound => AssetError::NotFound(path),
         kind => AssetError::Io { path, kind },
     }
 }

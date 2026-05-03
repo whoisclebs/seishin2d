@@ -11,4 +11,7 @@ pub use image::ImageData;
 pub use loader::AssetLoader;
 pub use path::{AssetPath, AssetRoot};
 
+#[cfg(target_arch = "wasm32")]
+pub use platform::preload_web_assets;
+
 pub(crate) use image::decode_image;

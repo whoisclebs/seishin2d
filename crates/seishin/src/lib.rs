@@ -1,6 +1,13 @@
 mod app;
 mod platform;
 
+#[cfg(target_arch = "wasm32")]
+pub use platform::preload_web_resources;
+#[cfg(target_arch = "wasm32")]
+pub use seishin_assets::preload_web_assets;
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen_futures::spawn_local;
+
 pub use app::{
     run, ActiveDialogue, App, Assets, CharacterData, CharacterDialogueData, Component2D,
     ComponentRegistry, DialogueData, DialogueState, Entity, EntityMut, FrameContext, Game2D,
@@ -74,13 +81,28 @@ macro_rules! seishin_main {
         #[cfg(target_arch = "wasm32")]
         #[wasm_bindgen::prelude::wasm_bindgen(start)]
         pub fn wasm_start() {
-            if let Err(error) = $crate::run::<$game>() {
-                let message = format!("seishin web startup failed: {error}");
-                web_sys::console::error_1(&message.clone().into());
+            $crate::spawn_local(async {
+                if let Err(error) = $crate::preload_web_resources("seishin-web-resources.txt").await {
+                    report_web_startup_error(&format!("seishin web resource preload failed: {error:?}"));
+                    return;
+                }
+
+                if let Err(error) = $crate::preload_web_assets("seishin-web-assets.txt").await {
+                    report_web_startup_error(&format!("seishin web asset preload failed: {error:?}"));
+                    return;
+                }
+
+                if let Err(error) = $crate::run::<$game>() {
+                    report_web_startup_error(&format!("seishin web startup failed: {error}"));
+                }
+            });
+
+            fn report_web_startup_error(message: &str) {
+                web_sys::console::error_1(&message.into());
 
                 if let Some(document) = web_sys::window().and_then(|window| window.document()) {
                     if let Ok(element) = document.create_element("pre") {
-                        element.set_text_content(Some(&message));
+                        element.set_text_content(Some(message));
                         let _ = element.set_attribute(
                             "style",
                             "margin:16px;padding:12px;color:#ffb4b4;background:#240909;border:1px solid #7f1d1d;white-space:pre-wrap;",
@@ -90,8 +112,6 @@ macro_rules! seishin_main {
                         }
                     }
                 }
-
-                wasm_bindgen::throw_str(&message);
             }
         }
     };

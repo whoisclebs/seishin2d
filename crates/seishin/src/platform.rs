@@ -45,23 +45,63 @@ pub fn read_to_string(path: &Path) -> std::io::Result<String> {
 
 #[cfg(target_arch = "wasm32")]
 pub fn read_to_string(path: &Path) -> std::io::Result<String> {
-    use web_sys::XmlHttpRequest;
+    let key = web_path(path);
+    WEB_RESOURCE_CACHE.with(|cache| {
+        cache
+            .borrow()
+            .get(&key)
+            .cloned()
+            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
+    })
+}
 
-    let url = path.to_string_lossy().replace('\\', "/");
-    let request = XmlHttpRequest::new().map_err(|_| std::io::ErrorKind::Other)?;
-    request
-        .open_with_async("GET", &url, false)
-        .map_err(|_| std::io::ErrorKind::Other)?;
-    request.send().map_err(|_| std::io::ErrorKind::Other)?;
-
-    match request.status().unwrap_or(0) {
-        200..=299 => request
-            .response_text()
-            .map_err(|_| std::io::ErrorKind::Other)?
-            .ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into()),
-        404 => Err(std::io::ErrorKind::NotFound.into()),
-        _ => Err(std::io::ErrorKind::Other.into()),
+#[cfg(target_arch = "wasm32")]
+pub async fn preload_web_resources(manifest_path: &str) -> Result<(), wasm_bindgen::JsValue> {
+    let manifest = fetch_text(manifest_path).await?;
+    for path in manifest
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+    {
+        let text = fetch_text(path).await?;
+        WEB_RESOURCE_CACHE.with(|cache| {
+            cache.borrow_mut().insert(path.to_string(), text);
+        });
     }
+
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    static WEB_RESOURCE_CACHE: std::cell::RefCell<std::collections::HashMap<String, String>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn fetch_text(path: &str) -> Result<String, wasm_bindgen::JsValue> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+
+    let window =
+        web_sys::window().ok_or_else(|| wasm_bindgen::JsValue::from_str("window unavailable"))?;
+    let response = JsFuture::from(window.fetch_with_str(path)).await?;
+    let response = response.dyn_into::<web_sys::Response>()?;
+    if !response.ok() {
+        return Err(wasm_bindgen::JsValue::from_str(&format!(
+            "failed to fetch {path}: HTTP {}",
+            response.status()
+        )));
+    }
+
+    let text = JsFuture::from(response.text()?).await?;
+    text.as_string()
+        .ok_or_else(|| wasm_bindgen::JsValue::from_str("fetch response was not text"))
+}
+
+#[cfg(target_arch = "wasm32")]
+fn web_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 #[cfg(not(target_arch = "wasm32"))]

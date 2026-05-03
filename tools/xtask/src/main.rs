@@ -125,8 +125,62 @@ fn build_web_example(example: &str, release: bool) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     fs::write(output_dir.join("index.html"), web_index_html(&out_name))
         .map_err(|error| error.to_string())?;
+    write_web_manifests(&output_dir)?;
 
     println!("web build written to {}", output_dir.display());
+    Ok(())
+}
+
+fn write_web_manifests(output_dir: &Path) -> Result<(), String> {
+    let mut resources = vec!["Seishin.toml".to_string()];
+    collect_manifest_paths(&output_dir.join("resources"), "resources", &mut resources)?;
+    resources.sort();
+    resources.dedup();
+    fs::write(
+        output_dir.join("seishin-web-resources.txt"),
+        resources.join("\n"),
+    )
+    .map_err(|error| error.to_string())?;
+
+    let mut assets = Vec::new();
+    collect_manifest_paths(&output_dir.join("assets"), "assets", &mut assets)?;
+    assets.sort();
+    assets.dedup();
+    fs::write(output_dir.join("seishin-web-assets.txt"), assets.join("\n"))
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn collect_manifest_paths(
+    root: &Path,
+    prefix: &str,
+    output: &mut Vec<String>,
+) -> Result<(), String> {
+    if !root.exists() {
+        return Ok(());
+    }
+
+    collect_manifest_paths_inner(root, root, prefix, output)
+}
+
+fn collect_manifest_paths_inner(
+    root: &Path,
+    current: &Path,
+    prefix: &str,
+    output: &mut Vec<String>,
+) -> Result<(), String> {
+    for entry in fs::read_dir(current).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_manifest_paths_inner(root, &path, prefix, output)?;
+        } else {
+            let relative = path.strip_prefix(root).map_err(|error| error.to_string())?;
+            output.push(format!("{}/{}", prefix, normalize_path(relative)));
+        }
+    }
+
     Ok(())
 }
 
