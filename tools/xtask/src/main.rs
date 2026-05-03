@@ -1,5 +1,7 @@
 use std::{
     fs,
+    io::{BufRead, BufReader, Write},
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
 };
@@ -51,8 +53,13 @@ fn web_serve(args: &[String]) -> ExitCode {
     }
 
     let output_dir = PathBuf::from("target").join("web").join(&example);
-    println!("serving {} at http://127.0.0.1:8000", output_dir.display());
-    run_in_dir("python", &["-m", "http.server", "8000"], &output_dir)
+    match serve_static(&output_dir, "127.0.0.1:8000") {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("web serve failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn parse_example(args: &[String]) -> Option<String> {
@@ -210,13 +217,101 @@ fn run(program: &str, args: &[&str]) -> ExitCode {
     }
 }
 
-fn run_in_dir(program: &str, args: &[&str], dir: &Path) -> ExitCode {
-    match Command::new(program).args(args).current_dir(dir).status() {
-        Ok(status) if status.success() => ExitCode::SUCCESS,
-        Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
-        Err(error) => {
-            eprintln!("failed to run {program}: {error}");
-            ExitCode::FAILURE
+fn serve_static(root: &Path, address: &str) -> Result<(), String> {
+    let root = fs::canonicalize(root).map_err(|error| error.to_string())?;
+    let listener = TcpListener::bind(address).map_err(|error| error.to_string())?;
+
+    println!("serving {} at http://{address}", root.display());
+    println!("press Ctrl+C to stop");
+
+    for stream in listener.incoming() {
+        let stream = stream.map_err(|error| error.to_string())?;
+        handle_static_request(stream, &root)?;
+    }
+
+    Ok(())
+}
+
+fn handle_static_request(mut stream: TcpStream, root: &Path) -> Result<(), String> {
+    let mut request_line = String::new();
+    {
+        let mut reader = BufReader::new(&stream);
+        reader
+            .read_line(&mut request_line)
+            .map_err(|error| error.to_string())?;
+    }
+
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or_default();
+    let request_path = parts.next().unwrap_or("/");
+
+    if method != "GET" && method != "HEAD" {
+        write_response(&mut stream, "405 Method Not Allowed", "text/plain", b"")?;
+        return Ok(());
+    }
+
+    let Some(file_path) = resolve_request_path(root, request_path) else {
+        write_response(&mut stream, "403 Forbidden", "text/plain", b"forbidden")?;
+        return Ok(());
+    };
+
+    if !file_path.is_file() {
+        write_response(&mut stream, "404 Not Found", "text/plain", b"not found")?;
+        return Ok(());
+    }
+
+    let bytes = fs::read(&file_path).map_err(|error| error.to_string())?;
+    write_response(&mut stream, "200 OK", content_type(&file_path), &bytes)
+}
+
+fn resolve_request_path(root: &Path, request_path: &str) -> Option<PathBuf> {
+    let path = request_path
+        .split_once('?')
+        .map_or(request_path, |(path, _)| path);
+    let path = path.trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+    let mut resolved = root.to_path_buf();
+
+    for segment in path.split('/') {
+        if segment.is_empty() || segment == "." {
+            continue;
         }
+        if segment == ".." || segment.contains('\\') {
+            return None;
+        }
+        resolved.push(segment);
+    }
+
+    Some(resolved)
+}
+
+fn write_response(
+    stream: &mut TcpStream,
+    status: &str,
+    content_type: &str,
+    body: &[u8],
+) -> Result<(), String> {
+    write!(
+        stream,
+        "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .map_err(|error| error.to_string())?;
+    stream.write_all(body).map_err(|error| error.to_string())
+}
+
+fn content_type(path: &Path) -> &'static str {
+    match path.extension().and_then(|extension| extension.to_str()) {
+        Some("html") => "text/html; charset=utf-8",
+        Some("js") => "text/javascript; charset=utf-8",
+        Some("wasm") => "application/wasm",
+        Some("css") => "text/css; charset=utf-8",
+        Some("json") => "application/json; charset=utf-8",
+        Some("toml") => "text/plain; charset=utf-8",
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("svg") => "image/svg+xml",
+        _ => "application/octet-stream",
     }
 }
