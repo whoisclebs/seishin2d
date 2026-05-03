@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use seishin2d_core::{Engine, Game};
 use seishin2d_input::{InputState, KeyCode};
@@ -143,10 +142,12 @@ pub fn run_desktop<G: DesktopGame>(
         }
 
         let mut input = DesktopInputFrame::default();
-        let runtime_error = Rc::new(RefCell::new(None));
-        let shared_runtime_error = Rc::clone(&runtime_error);
         let mut shutdown = false;
         let mut exit_requested = false;
+        let timestep = Duration::from_secs_f32(config.timestep.delta_seconds);
+        let max_frame_time = Duration::from_millis(250);
+        let mut last_frame = Instant::now();
+        let mut accumulator = Duration::ZERO;
 
         event_loop.spawn(move |event, event_loop| {
             let _keep_window_alive = &window;
@@ -169,6 +170,11 @@ pub fn run_desktop<G: DesktopGame>(
                     _ => {}
                 },
                 Event::AboutToWait => {
+                    let now = Instant::now();
+                    let frame_time = now.duration_since(last_frame).min(max_frame_time);
+                    last_frame = now;
+                    accumulator += frame_time;
+
                     let escape_requested = input.begin_game_frame(game.input_state());
 
                     if exit_requested || escape_requested {
@@ -177,23 +183,25 @@ pub fn run_desktop<G: DesktopGame>(
                         return;
                     }
 
-                    let update_result = engine
-                        .tick(config.timestep.delta_seconds)
-                        .and_then(|context| game.update(&mut engine, context));
+                    while accumulator >= timestep {
+                        let update_result = engine
+                            .tick(config.timestep.delta_seconds)
+                            .and_then(|context| game.update(&mut engine, context));
 
-                    match update_result {
-                        Ok(()) => match renderer.render(game.render_state()) {
-                            Ok(()) => input.end_game_frame(game.input_state()),
-                            Err(error) => {
-                                *shared_runtime_error.borrow_mut() = Some(error.to_string());
-                                log_web_error(&format!("render failed: {error}"));
-                                shutdown_web_game(&mut game, &mut engine, &mut shutdown);
-                                event_loop.exit();
-                            }
-                        },
-                        Err(error) => {
-                            *shared_runtime_error.borrow_mut() = Some(error.to_string());
+                        if let Err(error) = update_result {
                             log_web_error(&format!("update failed: {error}"));
+                            shutdown_web_game(&mut game, &mut engine, &mut shutdown);
+                            event_loop.exit();
+                            return;
+                        }
+
+                        accumulator -= timestep;
+                    }
+
+                    match renderer.render(game.render_state()) {
+                        Ok(()) => input.end_game_frame(game.input_state()),
+                        Err(error) => {
+                            log_web_error(&format!("render failed: {error}"));
                             shutdown_web_game(&mut game, &mut engine, &mut shutdown);
                             event_loop.exit();
                         }

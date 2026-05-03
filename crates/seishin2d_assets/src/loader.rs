@@ -81,11 +81,12 @@ fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
         kind: io::ErrorKind::Other,
     })?;
 
-    if request.status().unwrap_or(0) == 404 {
+    let status = request.status().unwrap_or(0);
+    if status == 404 {
         return Err(AssetError::NotFound(path.to_path_buf()));
     }
 
-    if !(200..300).contains(&request.status().unwrap_or(0)) {
+    if !(200..300).contains(&status) {
         return Err(AssetError::Io {
             path: path.to_path_buf(),
             kind: io::ErrorKind::Other,
