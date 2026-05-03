@@ -16,7 +16,7 @@ The high-level sprite builder is pleasant for tiny examples, but real games shou
 
 ## Decision
 
-`seishin2d` will support a scene/prefab/component architecture on top of the existing code-first API.
+`seishin` will support a scene/prefab/component architecture on top of the existing code-first API.
 
 The code-first flow remains valid for tutorials and tiny games:
 
@@ -89,7 +89,7 @@ ctx.components()
     .register::<PlayerController>("PlayerController")?;
 ```
 
-`seishin2d::run::<Game>()` calls `Game2D::new` first, then automatically loads `[game].main_scene`. Manual `ctx.load_main_scene()?` remains available and is idempotent, but it is not required for the default project flow.
+`seishin::run::<Game>()` calls `Game2D::new` first, then automatically loads `[game].main_scene`. Manual `ctx.load_main_scene()?` remains available and is idempotent, but it is not required for the default project flow.
 
 Prefabs may reference custom components:
 

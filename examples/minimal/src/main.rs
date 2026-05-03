@@ -1,4 +1,4 @@
-use seishin2d_core::{Engine, EngineConfig, EngineResult, Game, UpdateContext};
+use seishin_core::{Engine, EngineConfig, EngineResult, Game, UpdateContext};
 
 struct MinimalGame;
 
@@ -16,7 +16,7 @@ impl Game for MinimalGame {
 
 fn main() -> EngineResult<()> {
     let mut engine = Engine::new(EngineConfig {
-        app_name: "minimal seishin2d".to_string(),
+        app_name: "minimal seishin".to_string(),
         ..EngineConfig::default()
     })?;
 

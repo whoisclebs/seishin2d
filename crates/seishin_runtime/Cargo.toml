@@ -1,0 +1,19 @@
+[package]
+name = "seishin_runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+seishin_core.workspace = true
+seishin_input.workspace = true
+seishin_render.workspace = true
+pollster.workspace = true
+winit.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["console", "Document", "Element", "HtmlCanvasElement", "Performance", "Window"] }

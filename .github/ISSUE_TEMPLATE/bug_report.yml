@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a reproducible problem in seishin2d.
+description: Report a reproducible problem in seishin.
 title: "bug: "
 labels: ["bug"]
 body:
@@ -20,7 +20,7 @@ body:
       label: Reproduction Steps
       description: List exact commands and actions.
       placeholder: |
-        1. Run `cargo run -p seishin2d_basic_2d`
+        1. Run `cargo run -p seishin_basic_2d`
         2. Press ...
         3. Observe ...
     validations:

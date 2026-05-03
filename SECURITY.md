@@ -1,6 +1,6 @@
 # Security Policy
 
-`seishin2d` is an early engine prototype. Security-sensitive areas are still small but important:
+`seishin` is an early engine prototype. Security-sensitive areas are still small but important:
 
 - C ABI / FFI pointer and ownership boundaries;
 - asset path validation and root containment;

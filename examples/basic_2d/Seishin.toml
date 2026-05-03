@@ -1,5 +1,5 @@
 [game]
-name = "seishin2d basic 2d"
+name = "seishin basic 2d"
 main_scene = "res://scenes/main.scene.toml"
 
 [window]

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`seishin2d` is a native 2D game engine prototype with a Rust core and a stable interoperability boundary for future gameplay languages and tooling.
+`seishin` is a native 2D game engine prototype with a Rust core and a stable interoperability boundary for future gameplay languages and tooling.
 
 The project is authorial, modular, and pragmatic. The MVP should prove a small 2D vertical slice before introducing broad engine abstractions.
 
@@ -47,7 +47,7 @@ Android and Go bindings remain future design constraints, not MVP implementation
 
 `_reversa_sdd/` contains generated specifications derived from Bevy analysis. These documents are useful for architecture patterns, risks, and terminology, including plugin composition, schedules, renderer separation, asset safety, and platform input concerns.
 
-They are not a parity mandate. `seishin2d` should not import Bevy-scale complexity into the MVP unless a specific MVP requirement justifies it.
+They are not a parity mandate. `seishin` should not import Bevy-scale complexity into the MVP unless a specific MVP requirement justifies it.
 
 ## Public Boundary Model
 
@@ -65,17 +65,17 @@ Bindings and examples use stable public API types, opaque handles, IDs, and C-co
 
 ## Crate Responsibilities
 
-### `seishin2d`
+### `seishin`
 
 Owns the ergonomic facade for applications and examples:
 
 - reexports subsystem crates under domain modules;
-- exposes `seishin2d::prelude::*` for common gameplay/demo types;
+- exposes `seishin::prelude::*` for common gameplay/demo types;
 - keeps backend internals hidden behind subsystem public APIs.
 
 This crate is the preferred dependency for game code. Subsystem crates remain available for advanced users and internal composition.
 
-### `seishin2d_core`
+### `seishin_core`
 
 Owns stable engine-domain primitives and safe public API concepts:
 
@@ -85,9 +85,9 @@ Owns stable engine-domain primitives and safe public API concepts:
 - future entity IDs and transforms;
 - errors and result types.
 
-`seishin2d_core` must stay backend-agnostic. It must not depend on `winit`, `wgpu`, `kira`, `image`, or platform-specific crates.
+`seishin_core` must stay backend-agnostic. It must not depend on `winit`, `wgpu`, `kira`, `image`, or platform-specific crates.
 
-### `seishin2d_runtime`
+### `seishin_runtime`
 
 Owns application lifecycle orchestration:
 
@@ -97,7 +97,7 @@ Owns application lifecycle orchestration:
 
 Runtime composes subsystems. It should not absorb renderer, asset loader, or audio backend internals.
 
-### `seishin2d_render`
+### `seishin_render`
 
 Owns render-facing engine concepts and the future `wgpu` implementation:
 
@@ -107,7 +107,7 @@ Owns render-facing engine concepts and the future `wgpu` implementation:
 
 `wgpu` types must remain private implementation details. Public API should expose engine concepts such as `Camera2D`, `Sprite`, texture handles, and render configuration.
 
-### `seishin2d_input`
+### `seishin_input`
 
 Owns normalized input state independent from window backends:
 
@@ -118,7 +118,7 @@ Owns normalized input state independent from window backends:
 
 `winit` event types must not leak into public input APIs.
 
-### `seishin2d_assets`
+### `seishin_assets`
 
 Owns stable asset identifiers and loading policy:
 
@@ -128,7 +128,7 @@ Owns stable asset identifiers and loading policy:
 
 The MVP asset loader should enforce an approved asset root, reject path traversal, and return controlled errors for missing or invalid files.
 
-### `seishin2d_audio`
+### `seishin_audio`
 
 Owns the audio facade:
 
@@ -138,13 +138,13 @@ Owns the audio facade:
 
 No audio backend type should appear in public engine API or FFI.
 
-### `seishin2d_physics`
+### `seishin_physics`
 
 Reserved for simple 2D collision and future physics integration.
 
 Physics is outside the first playable demo unless the demo explicitly needs basic collision.
 
-### `seishin2d_ffi`
+### `seishin_ffi`
 
 Owns the C ABI boundary:
 
@@ -163,25 +163,25 @@ Preferred direction:
 examples/*
   -> public engine crates
 
-seishin2d_ffi
+seishin_ffi
   -> safe public Rust API
 
-seishin2d_runtime
-  -> seishin2d_core
+seishin_runtime
+  -> seishin_core
   -> subsystem public APIs
 
 subsystem crates
-  -> seishin2d_core only when shared engine-domain types are needed
+  -> seishin_core only when shared engine-domain types are needed
 
-seishin2d_core
+seishin_core
   -> no backend crates
 ```
 
 Rules:
 
 - Avoid dependency cycles.
-- Subsystem crates should not depend on `seishin2d_runtime`.
-- `seishin2d_ffi` must not depend directly on backend crates.
+- Subsystem crates should not depend on `seishin_runtime`.
+- `seishin_ffi` must not depend directly on backend crates.
 - Examples should prefer public API and must not reach into private implementation modules.
 - If a facade crate is added later, it should be deliberate and documented.
 
@@ -261,7 +261,7 @@ Manual final demo checklist:
 4. Add a simple internal entity/transform model.
 5. Add a desktop runtime using `winit` that opens a window and drives update/render.
 6. Add a `wgpu` renderer that clears the window surface.
-7. Connect normalized keyboard input from `winit` into `seishin2d_input`.
+7. Connect normalized keyboard input from `winit` into `seishin_input`.
 8. Render a movable sprite loaded from disk.
 9. Add a simple 2D camera and audio facade/playback.
 10. Extend the C ABI only after the safe Rust API stabilizes.

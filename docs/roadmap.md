@@ -1,11 +1,11 @@
 # Roadmap
 
-This roadmap tracks the intended direction for `seishin2d`. It is not a release promise. Priorities may change as the engine architecture is validated through examples and real usage.
+This roadmap tracks the intended direction for `seishin`. It is not a release promise. Priorities may change as the engine architecture is validated through examples and real usage.
 
 ## MVP Completed
 
 - [x] Rust workspace with modular engine crates.
-- [x] Facade crate with `seishin2d::prelude::*`.
+- [x] Facade crate with `seishin::prelude::*`.
 - [x] Desktop window and event loop.
 - [x] Basic input state with pressed and transition semantics.
 - [x] Asset root/path handling and image loading.
@@ -30,7 +30,7 @@ This roadmap tracks the intended direction for `seishin2d`. It is not a release 
 ## Mid Term
 
 - [ ] Evaluate whether `bevy_ecs` is needed after the MVP API is exercised by more examples.
-- [ ] Add a simple 2D collision layer or integrate a physics backend behind `seishin2d_physics`.
+- [ ] Add a simple 2D collision layer or integrate a physics backend behind `seishin_physics`.
 - [ ] Add more asset formats and clearer asset error diagnostics.
 - [ ] Add renderer resilience tests for resize/minimize/surface loss paths where practical.
 - [ ] Expand the C ABI only after equivalent safe Rust APIs stabilize.

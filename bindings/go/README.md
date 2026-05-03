@@ -2,7 +2,7 @@
 
 Go gameplay support is planned for the future and is not part of the MVP implementation.
 
-Future Go support should be layered above `seishin2d_ffi`:
+Future Go support should be layered above `seishin_ffi`:
 
 ```txt
 Go Gameplay
@@ -16,7 +16,7 @@ Go Gameplay
 
 - No Go binding is implemented for the MVP.
 - This directory is planning documentation only.
-- Go work depends on a stabilized `seishin2d_ffi` contract.
+- Go work depends on a stabilized `seishin_ffi` contract.
 - The Rust MVP should prove the safe public API before the C ABI grows wider.
 
 ## Boundary Rules
@@ -37,4 +37,4 @@ The first future Go wrapper should only cover stable lifecycle functions:
 - wrap `seishin_engine_frame`;
 - wrap `seishin_engine_destroy`.
 
-Additional functions should be added only after the equivalent safe Rust API behavior is implemented, tested, and intentionally exposed through `seishin2d_ffi`.
+Additional functions should be added only after the equivalent safe Rust API behavior is implemented, tested, and intentionally exposed through `seishin_ffi`.

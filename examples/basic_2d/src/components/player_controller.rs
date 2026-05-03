@@ -1,4 +1,4 @@
-use seishin2d::prelude::*;
+use seishin::prelude::*;
 
 #[derive(Default)]
 pub struct PlayerController {

@@ -6,7 +6,7 @@ Accepted for MVP planning.
 
 ## Context
 
-`seishin2d` is intended to become a modular 2D engine with future Android and language binding support. The first delivery must remain small enough to validate the core architecture through one playable example.
+`seishin` is intended to become a modular 2D engine with future Android and language binding support. The first delivery must remain small enough to validate the core architecture through one playable example.
 
 ## Decision
 

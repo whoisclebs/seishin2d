@@ -2,11 +2,11 @@
 
 <br />
 <div align="center">
-  <a href="https://github.com/seishin2d/seishin2d">
-    <img src=".github/assets/seishin2d.png" alt="seishin2d logo" width="128" height="128">
+  <a href="https://github.com/seishin/seishin">
+    <img src=".github/assets/seishin.png" alt="seishin logo" width="128" height="128">
   </a>
 
-  <h1 align="center">seishin2d</h1>
+  <h1 align="center">seishin</h1>
 
   <p align="center">
     A small Rust-first 2D game engine prototype with desktop rendering, assets, audio, and a future-safe FFI boundary.
@@ -16,15 +16,15 @@
     <br />
     <a href="examples/basic_2d">View Example</a>
     &middot;
-    <a href="https://github.com/seishin2d/seishin2d/issues/new?template=bug_report.yml">Report Bug</a>
+    <a href="https://github.com/seishin/seishin/issues/new?template=bug_report.yml">Report Bug</a>
     &middot;
-    <a href="https://github.com/seishin2d/seishin2d/issues/new?template=feature_request.yml">Request Feature</a>
+    <a href="https://github.com/seishin/seishin/issues/new?template=feature_request.yml">Request Feature</a>
   </p>
 </div>
 
-`seishin2d` is a native 2D game engine prototype written in Rust. The project starts with a small desktop MVP and is designed around a stable public API boundary so future language bindings can call into the engine through C ABI / FFI instead of touching Rust internals.
+`seishin` is a native 2D game engine prototype written in Rust. The project starts with a small desktop MVP and is designed around a stable public API boundary so future language bindings can call into the engine through C ABI / FFI instead of touching Rust internals.
 
-The current MVP opens a desktop window, renders a sprite, loads assets from disk, handles keyboard input, and exposes a small future-safe FFI lifecycle boundary.
+The current MVP opens a desktop window or browser canvas, renders a sprite, loads assets, handles keyboard input, and exposes a small future-safe FFI lifecycle boundary.
 
 ## Table of Contents
 
@@ -44,7 +44,7 @@ The current MVP opens a desktop window, renders a sprite, loads assets from disk
 
 ## About
 
-`seishin2d` is not trying to compete with Godot, Unity, or Bevy. It is a focused engine-learning project with a pragmatic architecture:
+`seishin` is not trying to compete with Godot, Unity, or Bevy. It is a focused engine-learning project with a pragmatic architecture:
 
 ```txt
 Rust Engine Core
@@ -59,12 +59,13 @@ Design goals:
 - keep backend crates such as `wgpu`, `winit`, `kira`, and `image` behind engine APIs;
 - expose simple handles, IDs, and C-compatible values across FFI;
 - avoid Bevy-scale architecture until the MVP proves a real need;
-- keep the developer experience pleasant through the `seishin2d` facade crate and `seishin2d::prelude::*`.
+- keep the developer experience pleasant through the `seishin` facade crate and `seishin::prelude::*`.
 
 Initial targets:
 
 - Windows desktop
 - Linux desktop
+- WebAssembly/browser MVP
 
 Future targets:
 
@@ -85,8 +86,9 @@ The repository currently contains the MVP vertical slice:
 - simple camera support;
 - asset loading from disk;
 - simple audio playback with graceful degradation;
+- browser/WebAssembly build support with no-op audio fallback;
 - playable `examples/basic_2d` example;
-- C ABI lifecycle smoke boundary in `seishin2d_ffi`.
+- C ABI lifecycle smoke boundary in `seishin_ffi`.
 
 Manual visual/audio validation is still required on a desktop session after automated checks pass.
 
@@ -132,7 +134,7 @@ On Linux, `winit`, `wgpu`, and `kira` may require system packages for windowing,
 
 ```sh
 git clone <repo-url>
-cd seishin2d
+cd seishin
 ```
 
 ### Build
@@ -144,8 +146,26 @@ cargo build --workspace
 ### Run The Demo
 
 ```sh
-cargo run -p seishin2d_basic_2d
+cargo run -p seishin_basic_2d
 ```
+
+### Build The Web Demo
+
+Install the wasm target and `wasm-bindgen` CLI, then export the example:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+cargo run -p xtask -- web-build --example basic_2d
+```
+
+The export is written to `target/web/basic_2d`. Serve it locally with:
+
+```sh
+cargo run -p xtask -- web-serve --example basic_2d
+```
+
+The web MVP keeps the same game entry point (`seishin::run::<Game>()`) but runs with browser-specific runtime internals. Audio is currently a no-op fallback on wasm; assets and resources are fetched from the static export using the existing `asset://` and `res://` schemes.
 
 Controls:
 
@@ -160,7 +180,7 @@ Controls:
 Game/example code should normally depend on the facade crate and import the prelude:
 
 ```rust
-use seishin2d::prelude::*;
+use seishin::prelude::*;
 
 mod components;
 
@@ -178,7 +198,7 @@ impl Game2D for Game {
 }
 
 fn main() -> GameResult<()> {
-    seishin2d::run::<Game>()
+    seishin::run::<Game>()
 }
 ```
 
@@ -204,7 +224,7 @@ ctx.components()
     .register::<PlayerController>("PlayerController")?;
 ```
 
-`seishin2d::run::<Game>()` discovers `Seishin.toml`, lets `Game2D::new` register components, then automatically loads `[game].main_scene`.
+`seishin::run::<Game>()` discovers `Seishin.toml`, lets `Game2D::new` register components, then automatically loads `[game].main_scene`.
 
 Components can load their own game data/configuration through the resource API:
 
@@ -225,15 +245,15 @@ See the complete example in [`examples/basic_2d`](examples/basic_2d).
 
 ```txt
 crates/
-  seishin2d/          Facade crate and gameplay prelude
-  seishin2d_core/     Engine config, lifecycle, transforms, IDs, core errors
-  seishin2d_runtime/  Headless and desktop runtime orchestration
-  seishin2d_render/   2D render types and wgpu renderer
-  seishin2d_input/    Normalized input state
-  seishin2d_assets/   Asset paths, roots, handles, image loading
-  seishin2d_audio/    Audio facade and private kira backend
-  seishin2d_physics/  Placeholder for future 2D collision/physics
-  seishin2d_ffi/      C ABI boundary with opaque handles
+  seishin/          Facade crate and gameplay prelude
+  seishin_core/     Engine config, lifecycle, transforms, IDs, core errors
+  seishin_runtime/  Headless and desktop runtime orchestration
+  seishin_render/   2D render types and wgpu renderer
+  seishin_input/    Normalized input state
+  seishin_assets/   Asset paths, roots, handles, image loading
+  seishin_audio/    Audio facade and private kira backend
+  seishin_physics/  Placeholder for future 2D collision/physics
+  seishin_ffi/      C ABI boundary with opaque handles
 examples/
   minimal/            Headless loop smoke example
   basic_2d/           Playable MVP demo
@@ -252,7 +272,7 @@ Each crate keeps `src/lib.rs` as a small facade and places implementation in dom
 
 ## Architecture
 
-The engine is split into focused crates. The facade crate `seishin2d` is the preferred entry point for game code. Lower-level subsystem crates remain available for internal composition and advanced users.
+The engine is split into focused crates. The facade crate `seishin` is the preferred entry point for game code. Lower-level subsystem crates remain available for internal composition and advanced users.
 
 Important rules:
 
@@ -282,10 +302,12 @@ cargo build --workspace
 Useful commands:
 
 ```sh
-cargo run -p seishin2d_basic_2d
+cargo run -p seishin_basic_2d
 cargo run -p xtask -- check
-cargo test -p seishin2d_core
-cargo test -p seishin2d_render
+cargo run -p xtask -- web-build --example basic_2d
+cargo run -p xtask -- web-serve --example basic_2d
+cargo test -p seishin_core
+cargo test -p seishin_render
 ```
 
 Rust repository practices used here:
@@ -316,11 +338,12 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 cargo build --workspace
+cargo build --target wasm32-unknown-unknown -p seishin_basic_2d
 ```
 
 Manual demo checklist:
 
-- Run `cargo run -p seishin2d_basic_2d`.
+- Run `cargo run -p seishin_basic_2d`.
 - Confirm a desktop window opens.
 - Confirm the sprite appears over a clear background.
 - Confirm arrow keys and WASD move the sprite through the configured `move` input action.

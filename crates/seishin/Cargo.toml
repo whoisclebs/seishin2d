@@ -1,0 +1,27 @@
+[package]
+name = "seishin"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+seishin_assets.workspace = true
+seishin_audio.workspace = true
+seishin_core.workspace = true
+seishin_input.workspace = true
+seishin_physics.workspace = true
+seishin_render.workspace = true
+seishin_runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+futures-util.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["console", "Document", "Element", "Response", "Window"] }

@@ -1,4 +1,4 @@
-use seishin2d::prelude::*;
+use seishin::prelude::*;
 
 mod components;
 
@@ -15,6 +15,4 @@ impl Game2D for Game {
     }
 }
 
-fn main() -> GameResult<()> {
-    seishin2d::run::<Game>()
-}
+seishin::seishin_main!(Game);
