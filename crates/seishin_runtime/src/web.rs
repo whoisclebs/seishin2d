@@ -176,6 +176,7 @@ pub fn run_web<G: DesktopGame>(
                     accumulator += frame_time;
 
                     let escape_requested = input.begin_game_frame(game.input_state());
+                    let mut input_frame_open = true;
 
                     if exit_requested || escape_requested {
                         shutdown_web_game(&mut game, &mut engine, &mut shutdown);
@@ -196,10 +197,21 @@ pub fn run_web<G: DesktopGame>(
                         }
 
                         accumulator = (accumulator - timestep).max(0.0);
+                        input.end_game_frame(game.input_state());
+                        input_frame_open = false;
+
+                        if accumulator >= timestep {
+                            input.begin_game_frame(game.input_state());
+                            input_frame_open = true;
+                        }
                     }
 
                     match renderer.render(game.render_state()) {
-                        Ok(()) => input.end_game_frame(game.input_state()),
+                        Ok(()) => {
+                            if input_frame_open {
+                                input.end_game_frame(game.input_state());
+                            }
+                        }
                         Err(error) => {
                             log_web_error(&format!("render failed: {error}"));
                             shutdown_web_game(&mut game, &mut engine, &mut shutdown);

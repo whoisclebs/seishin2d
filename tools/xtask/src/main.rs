@@ -294,7 +294,13 @@ fn serve_static(root: &Path, address: &str) -> Result<(), String> {
 
     for stream in listener.incoming() {
         let stream = stream.map_err(|error| error.to_string())?;
-        handle_static_request(stream, &root)?;
+        let root = root.clone();
+
+        std::thread::spawn(move || {
+            if let Err(error) = handle_static_request(stream, &root) {
+                eprintln!("static request failed: {error}");
+            }
+        });
     }
 
     Ok(())

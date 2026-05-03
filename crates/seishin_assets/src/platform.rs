@@ -40,12 +40,17 @@ pub fn read_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
 pub async fn preload_web_assets(paths: &[String]) -> Result<(), wasm_bindgen::JsValue> {
     use wasm_bindgen_futures::JsFuture;
 
-    for path in paths {
+    let assets = futures_util::future::try_join_all(paths.iter().map(|path| async move {
         let response = fetch_response(path).await?;
         let buffer = JsFuture::from(response.array_buffer()?).await?;
         let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+        Ok::<_, wasm_bindgen::JsValue>((path.to_string(), bytes))
+    }))
+    .await?;
+
+    for (path, bytes) in assets {
         WEB_ASSET_CACHE.with(|cache| {
-            cache.borrow_mut().insert(path.to_string(), bytes);
+            cache.borrow_mut().insert(path, bytes);
         });
     }
 
