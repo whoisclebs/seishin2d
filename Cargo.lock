@@ -1724,6 +1724,7 @@ dependencies = [
  "seishin2d_core",
  "seishin2d_input",
  "seishin2d_render",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
  "winit",

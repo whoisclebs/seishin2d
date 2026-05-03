@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use seishin2d_core::{Engine, Game};
 use seishin2d_input::{InputState, KeyCode};
 use seishin2d_render::{RenderSize, RenderState, Renderer};
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use winit::dpi::{LogicalSize, Size};
 use winit::event::{ElementState, Event, WindowEvent};
@@ -91,13 +92,14 @@ pub fn run_desktop<G: DesktopGame>(
     config: DesktopRunConfig,
 ) -> Result<(), DesktopRuntimeError> {
     let event_loop = EventLoop::new()?;
+    let canvas = create_canvas(config.window.size.width, config.window.size.height)?;
     let window = WindowBuilder::new()
         .with_title(config.window.title.clone())
         .with_inner_size(Size::Logical(LogicalSize::new(
             config.window.size.width as f64,
             config.window.size.height as f64,
         )))
-        .with_append(true)
+        .with_canvas(Some(canvas))
         .with_focusable(true)
         .build(&event_loop)?;
 
@@ -216,6 +218,60 @@ pub fn run_desktop<G: DesktopGame>(
     });
 
     Ok(())
+}
+
+fn create_canvas(
+    width: u32,
+    height: u32,
+) -> Result<web_sys::HtmlCanvasElement, DesktopRuntimeError> {
+    let window = web_sys::window().ok_or_else(|| {
+        DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(
+            "browser window unavailable".to_string(),
+        ))
+    })?;
+    let document = window.document().ok_or_else(|| {
+        DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(
+            "document unavailable".to_string(),
+        ))
+    })?;
+    let body = document.body().ok_or_else(|| {
+        DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(
+            "document body unavailable".to_string(),
+        ))
+    })?;
+    let canvas = document
+        .create_element("canvas")
+        .map_err(|error| {
+            DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(format!(
+                "canvas creation failed: {error:?}"
+            )))
+        })?
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .map_err(|_| {
+            DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(
+                "created element was not a canvas".to_string(),
+            ))
+        })?;
+
+    canvas.set_width(width);
+    canvas.set_height(height);
+    canvas
+        .set_attribute(
+            "style",
+            "display:block;margin:auto;width:960px;height:540px;max-width:100vw;max-height:100vh;background:#6495ed;outline:1px solid #2f4f7f;",
+        )
+        .map_err(|error| {
+            DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(format!(
+                "canvas style failed: {error:?}"
+            )))
+        })?;
+    body.append_child(&canvas).map_err(|error| {
+        DesktopRuntimeError::Render(seishin2d_render::RenderError::SurfaceCreation(format!(
+            "canvas append failed: {error:?}"
+        )))
+    })?;
+
+    Ok(canvas)
 }
 
 fn shutdown_web_game<G: DesktopGame>(game: &mut G, engine: &mut Engine, shutdown: &mut bool) {
