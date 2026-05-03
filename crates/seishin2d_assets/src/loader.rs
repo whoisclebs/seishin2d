@@ -1,12 +1,4 @@
-use std::io;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::PathBuf;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs;
-
-use crate::{decode_image, AssetError, AssetPath, AssetRoot, ImageData};
+use crate::{decode_image, platform, AssetError, AssetPath, AssetRoot, ImageData};
 
 #[derive(Debug, Clone)]
 pub struct AssetLoader {
@@ -23,101 +15,18 @@ impl AssetLoader {
     }
 
     pub fn load_image(&self, asset_path: &AssetPath) -> Result<ImageData, AssetError> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            let url = self.root.resolve(asset_path);
-            let bytes = fetch_bytes(&url)?;
+        let path = self.resolve_readable_path(asset_path)?;
+        let bytes = platform::read_bytes(&path)?;
 
-            return decode_image(&url, &bytes);
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let disk_path = self.resolve_existing_path(asset_path)?;
-            let bytes =
-                fs::read(&disk_path).map_err(|error| map_io_error(disk_path.clone(), error))?;
-
-            decode_image(&disk_path, &bytes)
-        }
+        decode_image(&path, &bytes)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn resolve_existing_path(&self, asset_path: &AssetPath) -> Result<PathBuf, AssetError> {
+    fn resolve_readable_path(
+        &self,
+        asset_path: &AssetPath,
+    ) -> Result<std::path::PathBuf, AssetError> {
         let joined = self.root.resolve(asset_path);
-
-        if !joined.exists() {
-            return Err(AssetError::NotFound(joined));
-        }
-
-        let canonical = fs::canonicalize(&joined).map_err(|error| map_io_error(joined, error))?;
-
-        if !canonical.starts_with(self.root.path()) {
-            return Err(AssetError::PathOutsideRoot(canonical));
-        }
-
-        Ok(canonical)
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn fetch_bytes(path: &std::path::Path) -> Result<Vec<u8>, AssetError> {
-    use web_sys::XmlHttpRequest;
-
-    let url = path.to_string_lossy().replace('\\', "/");
-    let request = XmlHttpRequest::new().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
-    request
-        .open_with_async("GET", &url, false)
-        .map_err(|_| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
-        })?;
-    request
-        .override_mime_type("text/plain; charset=x-user-defined")
-        .map_err(|_| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
-        })?;
-    request.send().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
-
-    let status = request.status().unwrap_or(0);
-    if status == 404 {
-        return Err(AssetError::NotFound(path.to_path_buf()));
-    }
-
-    if !(200..300).contains(&status) {
-        return Err(AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::Other,
-        });
-    }
-
-    let response = request.response_text().map_err(|_| AssetError::Io {
-        path: path.to_path_buf(),
-        kind: io::ErrorKind::Other,
-    })?;
-    let bytes = response
-        .ok_or_else(|| AssetError::Io {
-            path: path.to_path_buf(),
-            kind: io::ErrorKind::UnexpectedEof,
-        })?
-        .encode_utf16()
-        .map(|code_unit| (code_unit & 0xff) as u8)
-        .collect();
-
-    Ok(bytes)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn map_io_error(path: PathBuf, error: io::Error) -> AssetError {
-    match error.kind() {
-        io::ErrorKind::NotFound => AssetError::NotFound(path),
-        kind => AssetError::Io { path, kind },
+        platform::canonical_asset_path(self.root.path(), joined)
     }
 }
 
@@ -127,6 +36,7 @@ mod tests {
     use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
     use std::{
         fs,
+        path::PathBuf,
         sync::atomic::{AtomicU64, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };

@@ -6,9 +6,7 @@ use std::{
     sync::Once,
 };
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs;
-
+use crate::platform;
 use seishin2d_assets::{AssetHandle, AssetLoader, AssetPath, AssetRoot};
 use seishin2d_audio::{AudioSystem, PlaybackResult, SoundAsset};
 use seishin2d_core::{
@@ -19,7 +17,6 @@ use seishin2d_render::{Camera2D, ClearColor, RenderState, Sprite, TextureData, T
 use seishin2d_runtime::{run_desktop, DesktopGame, DesktopRunConfig, FixedTimestep, WindowConfig};
 use serde::Deserialize;
 use tracing::{debug, info, warn};
-use tracing_subscriber::EnvFilter;
 
 pub type GameResult<T> = Result<T, Box<dyn Error>>;
 pub type Entity = EntityId;
@@ -104,7 +101,7 @@ impl Resources {
     {
         let path = path.as_ref();
         let resolved = self.paths.resolve_resource(path)?;
-        let source = read_to_string(&resolved).map_err(|error| {
+        let source = platform::read_to_string(&resolved).map_err(|error| {
             PathDiagnosticError::resource(
                 path.to_string(),
                 resolved.clone(),
@@ -202,12 +199,7 @@ impl App {
     }
 
     pub fn from_project(path: impl AsRef<Path>) -> GameResult<Self> {
-        #[cfg(target_arch = "wasm32")]
-        let path = path.as_ref().to_path_buf();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let path = fs::canonicalize(path.as_ref())?;
-
+        let path = platform::project_path(path.as_ref())?;
         let project = ProjectConfig::from_path(&path)?;
         let project_dir = path.parent().unwrap_or_else(|| Path::new("."));
 
@@ -215,16 +207,7 @@ impl App {
     }
 
     pub fn discover_project() -> GameResult<Self> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            return Self::from_project(PathBuf::from("Seishin.toml"));
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let project_path = discover_project_file()?;
-            Self::from_project(project_path)
-        }
+        Self::from_project(platform::discover_project_file()?)
     }
 
     pub fn window_size(mut self, width: u32, height: u32) -> Self {
@@ -367,20 +350,7 @@ impl LoggingConfig {
             return;
         }
 
-        let default_filter = self.default_filter.clone();
-
-        LOGGING_INIT.call_once(move || {
-            let env_filter = EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(default_filter));
-
-            #[cfg(target_arch = "wasm32")]
-            let subscriber = tracing_subscriber::fmt().without_time();
-
-            #[cfg(not(target_arch = "wasm32"))]
-            let subscriber = tracing_subscriber::fmt();
-
-            let _ = subscriber.with_env_filter(env_filter).try_init();
-        });
+        platform::install_logging(&LOGGING_INIT, self.default_filter.clone());
     }
 }
 
@@ -1410,7 +1380,7 @@ struct ProjectConfig {
 
 impl ProjectConfig {
     fn from_path(path: &Path) -> GameResult<Self> {
-        let source = read_to_string(path)?;
+        let source = platform::read_to_string(path)?;
         Ok(toml::from_str(&source)?)
     }
 }
@@ -1761,95 +1731,18 @@ fn ensure_resource_scheme(path: &VirtualPath<'_>) -> GameResult<()> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn discover_project_file() -> GameResult<PathBuf> {
-    let current_dir = std::env::current_dir()?;
-
-    for directory in current_dir.ancestors() {
-        let candidate = directory.join("Seishin.toml");
-
-        if candidate.is_file() {
-            return Ok(candidate);
-        }
-    }
-
-    let mut candidates = Vec::new();
-    let examples_dir = current_dir.join("examples");
-
-    if let Ok(entries) = fs::read_dir(examples_dir) {
-        for entry in entries.flatten() {
-            let candidate = entry.path().join("Seishin.toml");
-
-            if candidate.is_file() {
-                candidates.push(candidate);
-            }
-        }
-    }
-
-    match candidates.as_slice() {
-        [project] => Ok(project.clone()),
-        [] => Err("Seishin.toml not found. Expected a Seishin.toml file in the current directory, a parent directory, or exactly one examples/* project.".into()),
-        _ => Err("multiple Seishin.toml files found; use App::from_project(path)".into()),
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn read_to_string(path: &Path) -> std::io::Result<String> {
-    fs::read_to_string(path)
-}
-
-#[cfg(target_arch = "wasm32")]
-fn read_to_string(path: &Path) -> std::io::Result<String> {
-    use web_sys::XmlHttpRequest;
-
-    let url = path.to_string_lossy().replace('\\', "/");
-    let request = XmlHttpRequest::new().map_err(|_| std::io::ErrorKind::Other)?;
-    request
-        .open_with_async("GET", &url, false)
-        .map_err(|_| std::io::ErrorKind::Other)?;
-    request.send().map_err(|_| std::io::ErrorKind::Other)?;
-
-    match request.status().unwrap_or(0) {
-        200..=299 => request
-            .response_text()
-            .map_err(|_| std::io::ErrorKind::Other)?
-            .ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into()),
-        404 => Err(std::io::ErrorKind::NotFound.into()),
-        _ => Err(std::io::ErrorKind::Other.into()),
-    }
-}
-
 fn validate_main_scene(main_scene: &str, paths: &ProjectPaths) -> GameResult<()> {
     let resolved = paths.resolve_resource(main_scene)?;
+    platform::ensure_readable_file(&resolved).map_err(|error| {
+        PathDiagnosticError::resource(
+            main_scene.to_string(),
+            resolved,
+            &paths.resource_root,
+            error,
+        )
+    })?;
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        read_to_string(&resolved).map_err(|error| {
-            PathDiagnosticError::resource(
-                main_scene.to_string(),
-                resolved.clone(),
-                &paths.resource_root,
-                error,
-            )
-        })?;
-
-        return Ok(());
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        if !resolved.is_file() {
-            return Err(PathDiagnosticError::resource(
-                main_scene.to_string(),
-                resolved,
-                &paths.resource_root,
-                std::io::Error::new(std::io::ErrorKind::NotFound, "main scene file not found"),
-            )
-            .into());
-        }
-
-        Ok(())
-    }
+    Ok(())
 }
 
 fn load_main_scene(main_scene: &str, startup: &mut StartupContext) -> GameResult<()> {
@@ -1880,7 +1773,7 @@ fn load_main_scene(main_scene: &str, startup: &mut StartupContext) -> GameResult
 
 fn load_scene_config(path: &str, paths: &ProjectPaths) -> GameResult<SceneConfig> {
     let resolved = paths.resolve_resource(path)?;
-    let source = read_to_string(&resolved).map_err(|error| {
+    let source = platform::read_to_string(&resolved).map_err(|error| {
         PathDiagnosticError::resource(
             path.to_string(),
             resolved.clone(),
@@ -1897,7 +1790,7 @@ fn load_scene_config(path: &str, paths: &ProjectPaths) -> GameResult<SceneConfig
 
 fn load_prefab_config(path: &str, paths: &ProjectPaths) -> GameResult<PrefabConfig> {
     let resolved = paths.resolve_resource(path)?;
-    let source = read_to_string(&resolved).map_err(|error| {
+    let source = platform::read_to_string(&resolved).map_err(|error| {
         PathDiagnosticError::resource(
             path.to_string(),
             resolved.clone(),
@@ -2052,31 +1945,9 @@ impl EntityBlueprint {
     fn validate_data_refs(&self, paths: &ProjectPaths) -> GameResult<()> {
         for value in self.data_refs.values() {
             let resolved = paths.resolve_resource(value)?;
-
-            #[cfg(target_arch = "wasm32")]
-            {
-                read_to_string(&resolved).map_err(|error| {
-                    PathDiagnosticError::resource(
-                        value.clone(),
-                        resolved.clone(),
-                        &paths.resource_root,
-                        error,
-                    )
-                })?;
-
-                continue;
-            }
-
-            #[cfg(not(target_arch = "wasm32"))]
-            if !resolved.is_file() {
-                return Err(PathDiagnosticError::resource(
-                    value.clone(),
-                    resolved,
-                    &paths.resource_root,
-                    std::io::Error::new(std::io::ErrorKind::NotFound, "data resource not found"),
-                )
-                .into());
-            }
+            platform::ensure_readable_file(&resolved).map_err(|error| {
+                PathDiagnosticError::resource(value.clone(), resolved, &paths.resource_root, error)
+            })?;
         }
 
         Ok(())

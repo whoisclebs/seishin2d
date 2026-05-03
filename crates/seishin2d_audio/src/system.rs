@@ -1,16 +1,10 @@
 use std::collections::HashSet;
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::PathBuf;
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs, io};
-
-#[cfg(not(target_arch = "wasm32"))]
-use seishin2d_assets::AssetError;
 use seishin2d_assets::{AssetHandle, AssetPath, AssetRoot};
 
-use crate::{backend::AudioBackend, AudioError, AudioSkipReason, PlaybackResult, SoundAsset};
+use crate::{
+    backend::AudioBackend, platform, AudioError, AudioSkipReason, PlaybackResult, SoundAsset,
+};
 
 pub struct AudioSystem {
     backend: Option<AudioBackend>,
@@ -54,11 +48,7 @@ impl AudioSystem {
         root: &AssetRoot,
         path: &AssetPath,
     ) -> Result<AssetHandle<SoundAsset>, AudioError> {
-        #[cfg(target_arch = "wasm32")]
-        let disk_path = root.resolve(path);
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let disk_path = resolve_existing_asset(root, path)?;
+        let disk_path = platform::resolve_sound_asset(root, path)?;
         let id = self.next_sound_id;
         self.next_sound_id += 1;
         let handle = AssetHandle::from_id(id);
@@ -93,34 +83,11 @@ impl Default for AudioSystem {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn resolve_existing_asset(root: &AssetRoot, asset_path: &AssetPath) -> Result<PathBuf, AssetError> {
-    let joined = root.resolve(asset_path);
-
-    if !joined.exists() {
-        return Err(AssetError::NotFound(joined));
-    }
-
-    let canonical = fs::canonicalize(&joined).map_err(|error| map_io_error(joined, error))?;
-
-    if !canonical.starts_with(root.path()) {
-        return Err(AssetError::PathOutsideRoot(canonical));
-    }
-
-    Ok(canonical)
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn map_io_error(path: PathBuf, error: io::Error) -> AssetError {
-    match error.kind() {
-        io::ErrorKind::NotFound => AssetError::NotFound(path),
-        kind => AssetError::Io { path, kind },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use seishin2d_assets::AssetError;
+    use std::{fs, path::PathBuf};
 
     #[test]
     fn disabled_audio_loads_existing_asset_but_skips_playback() {

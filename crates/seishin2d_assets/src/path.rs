@@ -1,9 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::fs;
-
-use crate::AssetError;
+use crate::{platform, AssetError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetPath(String);
@@ -55,24 +52,9 @@ pub struct AssetRoot {
 
 impl AssetRoot {
     pub fn new(path: impl AsRef<Path>) -> Result<Self, AssetError> {
-        #[cfg(target_arch = "wasm32")]
-        {
-            return Ok(Self {
-                path: path.as_ref().to_path_buf(),
-            });
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let canonical = fs::canonicalize(path.as_ref())
-                .map_err(|_| AssetError::InvalidAssetRoot(path.as_ref().to_path_buf()))?;
-
-            if !canonical.is_dir() {
-                return Err(AssetError::InvalidAssetRoot(canonical));
-            }
-
-            Ok(Self { path: canonical })
-        }
+        Ok(Self {
+            path: platform::asset_root(path.as_ref())?,
+        })
     }
 
     pub fn path(&self) -> &Path {

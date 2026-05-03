@@ -33,10 +33,7 @@ impl Renderer {
         size: RenderSize,
     ) -> Result<Self, RenderError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
-            #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
+            backends: platform_backends(),
             ..Default::default()
         });
         let surface = unsafe {
@@ -61,10 +58,7 @@ impl Renderer {
                 &wgpu::DeviceDescriptor {
                     label: Some("seishin2d render device"),
                     required_features: wgpu::Features::empty(),
-                    #[cfg(target_arch = "wasm32")]
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                    #[cfg(not(target_arch = "wasm32"))]
-                    required_limits: wgpu::Limits::downlevel_defaults(),
+                    required_limits: platform_limits(),
                 },
                 None,
             )
@@ -391,6 +385,26 @@ fn create_texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLay
             },
         ],
     })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn platform_backends() -> wgpu::Backends {
+    wgpu::Backends::GL
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn platform_backends() -> wgpu::Backends {
+    wgpu::Backends::PRIMARY
+}
+
+#[cfg(target_arch = "wasm32")]
+fn platform_limits() -> wgpu::Limits {
+    wgpu::Limits::downlevel_webgl2_defaults()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn platform_limits() -> wgpu::Limits {
+    wgpu::Limits::downlevel_defaults()
 }
 
 fn wgpu_surface_config(
