@@ -49,4 +49,4 @@ jobs:
         run: cargo build --workspace
 
       - name: Build Web Example
-        run: cargo build --target wasm32-unknown-unknown -p seishin2d_basic_2d
+        run: cargo build --target wasm32-unknown-unknown -p seishin_basic_2d

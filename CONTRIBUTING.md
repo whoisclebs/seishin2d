@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in `seishin2d`.
+Thanks for your interest in `seishin`.
 
 This project is early and intentionally MVP-focused. Prefer small, validated changes over broad abstractions.
 
@@ -25,7 +25,7 @@ cargo build --workspace
 If you touch windowing, rendering, input, assets, or audio, also run:
 
 ```sh
-cargo run -p seishin2d_basic_2d
+cargo run -p seishin_basic_2d
 ```
 
 Record what you manually verified.

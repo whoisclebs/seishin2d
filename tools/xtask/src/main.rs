@@ -176,7 +176,7 @@ fn web_index_html(out_name: &str) -> String {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Seishin2D Web</title>
+    <title>Seishin Web</title>
     <style>
       html, body {{ margin: 0; min-height: 100%; background: #111; }}
       canvas {{ display: block; margin: auto; outline: none; }}

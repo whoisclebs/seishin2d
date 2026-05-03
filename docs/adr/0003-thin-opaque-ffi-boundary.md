@@ -10,7 +10,7 @@ Future bindings, especially Go, should access the engine through a C ABI / FFI l
 
 ## Decision
 
-`seishin2d_ffi` remains a thin, opaque, command-oriented wrapper over the safe public Rust API.
+`seishin_ffi` remains a thin, opaque, command-oriented wrapper over the safe public Rust API.
 
 Allowed FFI surface:
 

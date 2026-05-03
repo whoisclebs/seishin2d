@@ -8,8 +8,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
-- Rust workspace for the `seishin2d` 2D engine prototype.
-- Facade crate with `seishin2d::prelude::*`.
+- Rust workspace for the `seishin` 2D engine prototype.
+- Facade crate with `seishin::prelude::*`.
 - Desktop MVP window/runtime path.
 - Minimal `wgpu` renderer with clear pass and sprite drawing.
 - Input state with pressed/transition semantics.

@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Architecture Notes
-    url: https://github.com/seishin2d/seishin2d/blob/main/docs/architecture.md
+    url: https://github.com/seishin/seishin/blob/main/docs/architecture.md
     about: Read the current architecture contract before proposing major changes.

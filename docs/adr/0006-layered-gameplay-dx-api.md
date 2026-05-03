@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-The current `seishin2d` facade proves the MVP runtime, asset loading, rendering, input, and audio path, but the developer experience still feels closer to a low-level graphics library than to a game engine.
+The current `seishin` facade proves the MVP runtime, asset loading, rendering, input, and audio path, but the developer experience still feels closer to a low-level graphics library than to a game engine.
 
 The first playable example currently asks game code to manage details that should not be required for an introductory engine workflow:
 
@@ -40,7 +40,7 @@ This low-level API is still useful, but it should be treated as an advanced laye
 
 ## Decision
 
-`seishin2d` will expose layered gameplay APIs. Lower layers remain available, but examples and documentation should prefer the highest layer that fits the task.
+`seishin` will expose layered gameplay APIs. Lower layers remain available, but examples and documentation should prefer the highest layer that fits the task.
 
 ### Layer 1: Low-Level Runtime And Rendering API
 
@@ -114,7 +114,7 @@ Game code should not need to hardcode window, asset root, or default logging con
 Instead of:
 
 ```rust
-App::new("seishin2d basic 2d")
+App::new("seishin basic 2d")
     .window_size(960, 540)
     .asset_root(concat!(env!("CARGO_MANIFEST_DIR"), "/assets"))
     .run::<Basic2D>()
@@ -137,7 +137,7 @@ Example `Seishin.toml`:
 
 ```toml
 [game]
-name = "seishin2d basic 2d"
+name = "seishin basic 2d"
 main_scene = "res://scenes/main.scene.toml"
 
 [window]
@@ -178,7 +178,7 @@ The engine should also provide a convention-based entry point that discovers the
 
 ```rust
 fn main() -> GameResult<()> {
-    seishin2d::run::<Basic2D>()
+    seishin::run::<Basic2D>()
 }
 ```
 
@@ -205,7 +205,7 @@ App::new()
 or, preferably for the simplest project:
 
 ```rust
-seishin2d::run::<Basic2D>()
+seishin::run::<Basic2D>()
 ```
 
 Advanced users can still install their own tracing subscriber before starting the engine.
@@ -255,7 +255,7 @@ The engine should render entities that have renderable components, such as `Tran
 Target beginner-facing example:
 
 ```rust
-use seishin2d::prelude::*;
+use seishin::prelude::*;
 
 mod components;
 
@@ -273,7 +273,7 @@ impl Game2D for Game {
 }
 
 fn main() -> GameResult<()> {
-    seishin2d::run::<Game>()
+    seishin::run::<Game>()
 }
 ```
 
@@ -318,7 +318,7 @@ This ADR does not require the CLI to be implemented before the layered API. It r
 The intended implementation order is:
 
 1. `Seishin.toml` parsing and project discovery.
-2. Default logging owned by `App` or `seishin2d::run`.
+2. Default logging owned by `App` or `seishin::run`.
 3. `res://` resource paths and improved asset diagnostics.
 4. `ctx.assets()` facade.
 5. `Entity` handles and a minimal world API.

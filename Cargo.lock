@@ -1638,16 +1638,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "seishin2d"
+name = "seishin"
 version = "0.1.0"
 dependencies = [
- "seishin2d_assets",
- "seishin2d_audio",
- "seishin2d_core",
- "seishin2d_input",
- "seishin2d_physics",
- "seishin2d_render",
- "seishin2d_runtime",
+ "seishin_assets",
+ "seishin_audio",
+ "seishin_core",
+ "seishin_input",
+ "seishin_physics",
+ "seishin_render",
+ "seishin_runtime",
  "serde",
  "toml",
  "tracing",
@@ -1656,7 +1656,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "seishin2d_assets"
+name = "seishin_assets"
 version = "0.1.0"
 dependencies = [
  "image",
@@ -1665,67 +1665,67 @@ dependencies = [
 ]
 
 [[package]]
-name = "seishin2d_audio"
+name = "seishin_audio"
 version = "0.1.0"
 dependencies = [
  "kira",
- "seishin2d_assets",
+ "seishin_assets",
 ]
 
 [[package]]
-name = "seishin2d_basic_2d"
+name = "seishin_basic_2d"
 version = "0.1.0"
 dependencies = [
- "seishin2d",
+ "seishin",
  "tracing",
  "wasm-bindgen",
  "web-sys",
 ]
 
 [[package]]
-name = "seishin2d_core"
+name = "seishin_core"
 version = "0.1.0"
 
 [[package]]
-name = "seishin2d_ffi"
+name = "seishin_ffi"
 version = "0.1.0"
 dependencies = [
- "seishin2d_core",
+ "seishin_core",
 ]
 
 [[package]]
-name = "seishin2d_input"
+name = "seishin_input"
 version = "0.1.0"
 
 [[package]]
-name = "seishin2d_minimal"
+name = "seishin_minimal"
 version = "0.1.0"
 dependencies = [
- "seishin2d_core",
+ "seishin_core",
 ]
 
 [[package]]
-name = "seishin2d_physics"
+name = "seishin_physics"
 version = "0.1.0"
 
 [[package]]
-name = "seishin2d_render"
+name = "seishin_render"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "raw-window-handle",
- "seishin2d_core",
+ "seishin_core",
  "wgpu",
 ]
 
 [[package]]
-name = "seishin2d_runtime"
+name = "seishin_runtime"
 version = "0.1.0"
 dependencies = [
  "pollster",
- "seishin2d_core",
- "seishin2d_input",
- "seishin2d_render",
+ "seishin_core",
+ "seishin_input",
+ "seishin_render",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
