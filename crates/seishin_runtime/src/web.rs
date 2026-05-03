@@ -263,7 +263,7 @@ fn create_canvas(
     canvas
         .set_attribute(
             "style",
-            "display:block;margin:auto;width:960px;height:540px;max-width:100vw;max-height:100vh;background:#6495ed;outline:1px solid #2f4f7f;",
+            "display:block;margin:auto;max-width:100vw;max-height:100vh;background:#6495ed;outline:1px solid #2f4f7f;",
         )
         .map_err(|error| {
             DesktopRuntimeError::Render(seishin_render::RenderError::SurfaceCreation(format!(

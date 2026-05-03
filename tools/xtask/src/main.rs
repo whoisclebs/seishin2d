@@ -131,18 +131,26 @@ fn build_web_example(example: &str, release: bool) -> Result<(), String> {
 }
 
 fn example_package_name(example_dir: &Path) -> Result<String, String> {
-    let manifest =
-        fs::read_to_string(example_dir.join("Cargo.toml")).map_err(|error| error.to_string())?;
-    let manifest = manifest
-        .parse::<toml::Value>()
-        .map_err(|error| format!("invalid example Cargo.toml: {error}"))?;
+    let manifest_path = example_dir.join("Cargo.toml");
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .manifest_path(&manifest_path)
+        .no_deps()
+        .exec()
+        .map_err(|error| format!("failed to read cargo metadata: {error}"))?;
+    let manifest_suffix = normalize_path(&manifest_path);
 
-    manifest
-        .get("package")
-        .and_then(|package| package.get("name"))
-        .and_then(toml::Value::as_str)
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| "package name not found in example Cargo.toml".to_string())
+    metadata
+        .packages
+        .iter()
+        .find(|package| {
+            normalize_path(package.manifest_path.as_std_path()).ends_with(&manifest_suffix)
+        })
+        .map(|package| package.name.clone())
+        .ok_or_else(|| format!("package name not found in {}", manifest_path.display()))
+}
+
+fn normalize_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 fn copy_if_exists(from: &Path, to: &Path) -> Result<(), String> {
