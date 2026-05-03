@@ -12,4 +12,4 @@ pub use error::DesktopRuntimeError;
 pub use headless::{run_headless, HeadlessRunConfig};
 pub use time::FixedTimestep;
 #[cfg(target_arch = "wasm32")]
-pub use web::{run_desktop, DesktopGame, DesktopRunConfig, WindowConfig, WindowSize};
+pub use web::{run_web as run_desktop, DesktopGame, DesktopRunConfig, WindowConfig, WindowSize};

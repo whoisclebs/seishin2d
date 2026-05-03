@@ -84,7 +84,7 @@ pub trait DesktopGame: Game + 'static {
     fn render_state(&self) -> RenderState<'_>;
 }
 
-pub fn run_desktop<G: DesktopGame>(
+pub fn run_web<G: DesktopGame>(
     engine: Engine,
     game: G,
     config: DesktopRunConfig,
@@ -260,10 +260,11 @@ fn create_canvas(
 
     canvas.set_width(width);
     canvas.set_height(height);
+    canvas.set_id("seishin-canvas");
     canvas
         .set_attribute(
             "style",
-            "display:block;margin:auto;max-width:100vw;max-height:100vh;background:#6495ed;outline:1px solid #2f4f7f;",
+            "display:block;margin:auto;max-width:100vw;max-height:100vh;",
         )
         .map_err(|error| {
             DesktopRuntimeError::Render(seishin_render::RenderError::SurfaceCreation(format!(

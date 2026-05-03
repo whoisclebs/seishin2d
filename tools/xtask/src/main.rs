@@ -141,37 +141,21 @@ fn write_web_manifest(output_dir: &Path) -> Result<(), String> {
     collect_manifest_paths(&output_dir.join("assets"), "assets", &mut assets)?;
     assets.sort();
     assets.dedup();
-    let manifest = format!(
-        "{{\n  \"resources\": {},\n  \"assets\": {}\n}}\n",
-        json_string_array(&resources),
-        json_string_array(&assets)
-    );
-    fs::write(output_dir.join("web-manifest.json"), manifest).map_err(|error| error.to_string())?;
+    let manifest = WebManifest { resources, assets };
+    let manifest = serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?;
+    fs::write(
+        output_dir.join("web-manifest.json"),
+        format!("{manifest}\n"),
+    )
+    .map_err(|error| error.to_string())?;
 
     Ok(())
 }
 
-fn json_string_array(values: &[String]) -> String {
-    let values = values
-        .iter()
-        .map(|value| format!("\"{}\"", json_escape(value)))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("[{values}]")
-}
-
-fn json_escape(value: &str) -> String {
-    value
-        .chars()
-        .flat_map(|character| match character {
-            '\\' => "\\\\".chars().collect::<Vec<_>>(),
-            '"' => "\\\"".chars().collect::<Vec<_>>(),
-            '\n' => "\\n".chars().collect::<Vec<_>>(),
-            '\r' => "\\r".chars().collect::<Vec<_>>(),
-            '\t' => "\\t".chars().collect::<Vec<_>>(),
-            character => vec![character],
-        })
-        .collect()
+#[derive(serde::Serialize)]
+struct WebManifest {
+    resources: Vec<String>,
+    assets: Vec<String>,
 }
 
 fn collect_manifest_paths(

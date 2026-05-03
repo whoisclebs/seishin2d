@@ -1687,6 +1687,7 @@ dependencies = [
  "seishin_render",
  "seishin_runtime",
  "serde",
+ "serde_json",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -3086,6 +3087,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "cargo_metadata",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

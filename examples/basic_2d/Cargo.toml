@@ -12,4 +12,4 @@ tracing.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
-web-sys = { workspace = true, features = ["console", "Document", "Element", "Window"] }
+web-sys = { workspace = true, features = ["console", "Document", "Element", "HtmlHeadElement", "Window"] }

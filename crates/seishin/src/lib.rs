@@ -44,30 +44,8 @@ pub async fn fetch_web_manifest(path: &str) -> Result<WebManifest, wasm_bindgen:
     let text = text
         .as_string()
         .ok_or_else(|| wasm_bindgen::JsValue::from_str("web manifest response was not text"))?;
-    let manifest = text
-        .parse::<toml::Value>()
-        .map_err(|error| wasm_bindgen::JsValue::from_str(&error.to_string()))?;
-    Ok(WebManifest {
-        resources: manifest_array(&manifest, "resources")?,
-        assets: manifest_array(&manifest, "assets")?,
-    })
-}
-
-#[cfg(target_arch = "wasm32")]
-fn manifest_array(manifest: &toml::Value, key: &str) -> Result<Vec<String>, wasm_bindgen::JsValue> {
-    manifest
-        .get(key)
-        .and_then(toml::Value::as_array)
-        .ok_or_else(|| wasm_bindgen::JsValue::from_str(&format!("web manifest missing `{key}`")))?
-        .iter()
-        .map(|value| {
-            value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
-                wasm_bindgen::JsValue::from_str(&format!(
-                    "web manifest `{key}` entry is not a string"
-                ))
-            })
-        })
-        .collect()
+    serde_json::from_str::<WebManifest>(&text)
+        .map_err(|error| wasm_bindgen::JsValue::from_str(&error.to_string()))
 }
 
 pub mod assets {
@@ -168,12 +146,21 @@ macro_rules! seishin_main {
                 web_sys::console::error_1(&message.into());
 
                 if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+                    if document.get_element_by_id("seishin-startup-error-style").is_none() {
+                        if let Ok(style) = document.create_element("style") {
+                            style.set_id("seishin-startup-error-style");
+                            style.set_text_content(Some(
+                                ".seishin-startup-error{margin:16px;padding:12px;color:#ffb4b4;background:#240909;border:1px solid #7f1d1d;white-space:pre-wrap;}",
+                            ));
+                            if let Some(head) = document.head() {
+                                let _ = head.append_child(&style);
+                            }
+                        }
+                    }
+
                     if let Ok(element) = document.create_element("pre") {
                         element.set_text_content(Some(message));
-                        let _ = element.set_attribute(
-                            "style",
-                            "margin:16px;padding:12px;color:#ffb4b4;background:#240909;border:1px solid #7f1d1d;white-space:pre-wrap;",
-                        );
+                        element.set_class_name("seishin-startup-error");
                         if let Some(body) = document.body() {
                             let _ = body.append_child(&element);
                         }
